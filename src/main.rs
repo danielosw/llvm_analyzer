@@ -61,6 +61,7 @@ fn process_function(lines: Vec<String>) -> std::io::Result<()> {
     let mut blocks: HashMap<String, Block> = HashMap::new();
     let mut functionname = "".to_owned();
     let mut currentcounter = 1;
+    let mut blocknum = 0;
     let mut block: Block = Block::new();
     for i in lines {
         if (i.trim().starts_with(";")) {
@@ -76,8 +77,10 @@ fn process_function(lines: Vec<String>) -> std::io::Result<()> {
                 // create a new block
                 block = Block {
                     name: define.unwrap().get(1).unwrap().as_str().to_owned(),
+                    number: blocknum,
                     ..Default::default()
                 };
+                blocknum += 1;
             }
             let labels = REGEX_BLOCK_LABEL.as_ref().unwrap().captures(&i);
             if labels.is_some() {
@@ -86,8 +89,11 @@ fn process_function(lines: Vec<String>) -> std::io::Result<()> {
                 // create a new block
                 block = Block {
                     name: label.to_string(),
+                    number: blocknum,
+
                     ..Default::default()
                 };
+                blocknum += 1;
                 inblock = true;
                 continue;
             }
@@ -109,7 +115,9 @@ fn process_function(lines: Vec<String>) -> std::io::Result<()> {
                     .collect();
 
                 for j in captures {
-                    block.connections.push(j.to_owned());
+                    block
+                        .connections
+                        .push(j.strip_prefix('%').unwrap_or(j).to_owned());
                 }
                 blocks.insert(block.name.clone(), block.clone());
                 inblock = false;
@@ -120,19 +128,26 @@ fn process_function(lines: Vec<String>) -> std::io::Result<()> {
                 let callname = block.name.clone() + &currentcounter.to_string();
                 let returnname = block.name.clone() + &(currentcounter + 1).to_string();
                 block.connections.push(callname.clone());
+                blocks.insert(block.name.clone(), block.clone());
 
                 let mut call_block = Block {
                     name: callname.clone(),
                     lines: vec![i],
                     connections: vec![returnname.clone()],
+                    number: blocknum,
+
                     ..Default::default()
                 };
+                blocknum += 1;
                 blocks.insert(callname, call_block);
 
                 let return_block = Block {
                     name: returnname.clone(),
+                    number: blocknum,
+
                     ..Default::default()
                 };
+                blocknum += 1;
                 blocks.insert(returnname.clone(), return_block);
 
                 currentcounter += 2;
@@ -152,29 +167,33 @@ fn outputToFile(
     function_name: &str,
 ) -> std::io::Result<()> {
     let mut outputfile = File::create("./".to_owned() + function_name + ".dot")?;
-    let mut x = 0;
     let mut output = "digraph {\n".to_string();
     for block in blocks.values_mut() {
         let label = "";
-        output +=
-            &("   Node".to_owned() + &x.to_string() + " [shape=record,label=\"" + label + "\"]\n");
-        block.number = x;
-        x += 1;
+        output += &("\t\tNode".to_owned()
+            + &block.number.to_string()
+            + " [shape=record,label=\""
+            + label
+            + "\"]\n");
     }
-    x = 0;
     for (_, block) in blocks.iter() {
         let mut j = 0;
         for i in block.connections.clone() {
-            output += &("     Node".to_owned()
-                + &x.to_string()
+            let target = blocks.get(&i).ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("block '{}' references missing block '{}'", block.name, i),
+                )
+            })?;
+            output += &("\t\tNode".to_owned()
+                + &block.number.to_string()
                 + " -> Node"
-                + &blocks.get(&i).unwrap().number.to_string()
+                + &target.number.to_string()
                 + " [label="
                 + &j.to_string()
                 + "];\n");
             j += 1;
         }
-        x += 1
     }
     output += "}";
     outputfile.write(output.as_bytes())?;
