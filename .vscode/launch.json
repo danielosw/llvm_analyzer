@@ -1,0 +1,34 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug executable 'eecs-677-project-3'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=eecs-677-project-3"
+                ]
+            },
+            "args": [
+                "--filename",
+                "test1.ll"
+            ]
+        },
+        {
+            "name": "Debug unit tests in executable 'eecs-677-project-3'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=eecs-677-project-3"
+                ]
+            }
+        }
+    ]
+}
