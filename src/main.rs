@@ -4,8 +4,8 @@ use std::fs::File;
 use std::io::prelude::*;
 mod block;
 mod proccessing;
-use crate::block::block::Block;
-use crate::proccessing::proccessing::{proccess_ll, process_function};
+use crate::block::Block;
+use crate::proccessing::{proccess_ll, process_function};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -39,8 +39,7 @@ fn output_to_file(
             + "\"]\n");
     }
     for block in tempvec {
-        let mut j = 0;
-        for i in block.connections.clone() {
+        for (j, i) in block.connections.clone().into_iter().enumerate() {
             let target = blocks.get(&i).unwrap();
 
             output += &("\t\tNode".to_owned()
@@ -50,11 +49,10 @@ fn output_to_file(
                 + " [label="
                 + &j.to_string()
                 + "];\n");
-            j += 1;
         }
     }
     output += "}";
-    outputfile.write(output.as_bytes())?;
+    outputfile.write_all(output.as_bytes())?;
     outputfile.flush()?;
     Ok(())
 }
@@ -62,7 +60,7 @@ fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let file_name = "./".to_owned() + &args.filename;
     let functions = proccess_ll(file_name)?;
-    for (_, function_list) in functions.iter() {
+    for function_list in functions.values() {
         process_function(function_list.to_vec())?;
     }
     Ok(())
