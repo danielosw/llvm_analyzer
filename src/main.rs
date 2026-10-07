@@ -14,7 +14,6 @@ struct Args {
     #[arg(short, long)]
     filename: String,
 }
-mod modname {}
 fn output_to_file(
     blocks: HashMap<std::string::String, Block>,
     function_name: &str,
@@ -24,7 +23,6 @@ fn output_to_file(
     let mut tempvec: Vec<&Block> = blocks.values().collect();
     tempvec.sort();
     for block in &tempvec {
-        // label = "\\n".join(blocks[key]).replace("\n", "\\n").replace("{", "").replace("}", "")
         let label = block
             .lines
             .join("\\n")
@@ -61,7 +59,8 @@ fn main() -> std::io::Result<()> {
     let file_name = "./".to_owned() + &args.filename;
     let functions = proccess_ll(file_name)?;
     for function_list in functions.values() {
-        process_function(function_list.to_vec())?;
+        let (blocks, function_name) = process_function(function_list.to_vec());
+        output_to_file(blocks, &function_name)?;
     }
     Ok(())
 }

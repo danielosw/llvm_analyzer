@@ -1,4 +1,4 @@
-use crate::output_to_file;
+use crate::block;
 use regex::{self, Regex};
 use std::sync::LazyLock;
 
@@ -29,7 +29,7 @@ use std::fs::File;
 pub(crate) fn proccess_ll(
     file_name: String,
 ) -> Result<HashMap<String, Vec<String>>, std::io::Error> {
-    let llfile = File::open(&file_name).unwrap();
+    let llfile = File::open(&file_name)?;
     let reader = BufReader::new(llfile);
     let lines: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
     let mut functions: HashMap<String, Vec<String>> = HashMap::new();
@@ -65,7 +65,12 @@ pub(crate) fn proccess_ll(
     Ok(functions)
 }
 
-pub(crate) fn process_function(lines: Vec<String>) -> std::io::Result<()> {
+pub(crate) fn process_function(
+    lines: Vec<String>,
+) -> (
+    std::collections::HashMap<std::string::String, block::Block>,
+    String,
+) {
     let mut inblock = false;
     let mut blocknames: Vec<String> = Vec::new();
     let mut blocks: HashMap<String, Block> = HashMap::new();
@@ -171,8 +176,8 @@ pub(crate) fn process_function(lines: Vec<String>) -> std::io::Result<()> {
         }
     }
     if functionname.strip_prefix("@").is_some() {
-        output_to_file(blocks, functionname.strip_prefix("@").unwrap())
+        (blocks, functionname.strip_prefix("@").unwrap().to_string())
     } else {
-        output_to_file(blocks, &functionname)
+        (blocks, functionname)
     }
 }
