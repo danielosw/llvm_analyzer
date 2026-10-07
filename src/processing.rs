@@ -12,7 +12,6 @@ macro_rules! define_regex {
     };
 }
 define_regex!(REGEX_LABEL, r"label %(.*?)(?:\,|$)");
-
 define_regex!(REGEX_DEFINE, r"define .*? (.*?)\(");
 define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
 
@@ -113,8 +112,6 @@ pub fn process_function(
             }
         } else {
             // we are in a block
-            let is_br = i.trim().starts_with("br ");
-
             if expression.specific_type == SpecificType::Ret {
                 let expression = block::Expression::new_with_text(i.clone());
                 block.lines.push(expression);

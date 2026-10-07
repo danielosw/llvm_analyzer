@@ -18,7 +18,7 @@ define_regex!(REGEX_RETURN, r"\bret\b");
 define_regex!(REGEX_CALL, r"\bcall\b");
 define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BroadType {
     Call,
     Start,
@@ -26,7 +26,7 @@ pub enum BroadType {
     Other,
     Unkown,
 }
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 
 pub enum SpecificType {
     Alloca,
@@ -48,7 +48,7 @@ pub enum SpecificType {
     Unkown,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Expression {
     pub broad_type: BroadType,
     pub specific_type: SpecificType,
