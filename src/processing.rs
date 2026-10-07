@@ -1,4 +1,4 @@
-use crate::block;
+use crate::block::{self, Expression, SpecificType};
 use regex::{self, Regex};
 use std::sync::LazyLock;
 
@@ -11,12 +11,10 @@ macro_rules! define_regex {
             make_static!({ Regex::new($text).ok() });
     };
 }
+define_regex!(REGEX_LABEL, r"label %(.*?)(?:\,|$)");
 
 define_regex!(REGEX_DEFINE, r"define .*? (.*?)\(");
-define_regex!(REGEX_LABEL, r"label %(.*?)(?:\,|$)");
 define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
-define_regex!(REGEX_RETURN, r"\bret\b");
-define_regex!(REGEX_CALL, r"\bcall\b");
 
 use crate::block::Block;
 
@@ -31,9 +29,12 @@ pub fn process_ll(ll_text: String) -> Result<HashMap<String, Vec<String>>, std::
     let mut function: Vec<String> = Vec::new();
     for i in lines {
         let j = i.clone();
-        let define = REGEX_DEFINE.as_ref().unwrap().captures(&j);
+
+        let expression = Expression::new_with_text(j.clone());
         if !infunction {
-            if let Some(define) = define {
+            if expression.specific_type == SpecificType::Define {
+                let define = REGEX_DEFINE.as_ref().unwrap().captures(&j).unwrap();
+
                 name = define.get(1).unwrap().as_str().to_owned();
                 function.push(i);
                 infunction = true;
@@ -43,7 +44,7 @@ pub fn process_ll(ll_text: String) -> Result<HashMap<String, Vec<String>>, std::
                 function.push(i);
             }
         } else {
-            if i.contains("}") {
+            if expression.specific_type == SpecificType::Endbracket {
                 function.push(i);
                 functions.insert(name.clone().to_string(), function.clone());
                 name = "".to_string();
@@ -74,9 +75,12 @@ pub fn process_function(
         if i.trim().starts_with(";") {
             continue;
         }
+        let expression = Expression::new_with_text(i.clone());
+
         if !inblock {
-            let define = REGEX_DEFINE.as_ref().unwrap().captures(&i);
-            if let Some(define) = define {
+            if expression.specific_type == SpecificType::Define {
+                let define = REGEX_DEFINE.as_ref().unwrap().captures(&i).unwrap();
+
                 // move the function name into the functionname variable
                 functionname = define.get(1).unwrap().as_str().to_owned();
                 blocknames.push(functionname.clone());
@@ -87,11 +91,12 @@ pub fn process_function(
                     number: blocknum,
                     ..Default::default()
                 };
-                block.lines.push(i.clone());
+                block.lines.push(expression.clone());
                 blocknum += 1;
             }
-            let labels = REGEX_BLOCK_LABEL.as_ref().unwrap().captures(&i);
-            if let Some(labels) = labels {
+            if expression.specific_type == SpecificType::Label {
+                let labels = REGEX_BLOCK_LABEL.as_ref().unwrap().captures(&i).unwrap();
+
                 let label = labels.get(1).unwrap().as_str().to_owned();
                 blocknames.push(label.clone());
                 // create a new block
@@ -101,7 +106,7 @@ pub fn process_function(
 
                     ..Default::default()
                 };
-                block.lines.push(i);
+                block.lines.push(expression);
                 blocknum += 1;
                 inblock = true;
                 continue;
@@ -110,15 +115,17 @@ pub fn process_function(
             // we are in a block
             let is_br = i.trim().starts_with("br ");
 
-            if REGEX_RETURN.as_ref().unwrap().find(&i).is_some() {
-                block.lines.push(i);
+            if expression.specific_type == SpecificType::Ret {
+                let expression = block::Expression::new_with_text(i.clone());
+                block.lines.push(expression);
                 blocks.insert(block.clone().name, block.clone());
                 inblock = false;
                 currentcounter = 1;
                 continue;
             }
-            if is_br {
-                block.lines.push(i.clone());
+            if expression.specific_type == SpecificType::Br {
+                let expression = block::Expression::new_with_text(i.clone());
+                block.lines.push(expression);
                 let labels = REGEX_LABEL.as_ref().unwrap().captures_iter(&i);
                 let captures: Vec<&str> = labels
                     .filter(|f| f.get(1).is_some())
@@ -134,7 +141,7 @@ pub fn process_function(
                 currentcounter = 1;
                 continue;
             }
-            if REGEX_CALL.as_ref().unwrap().find(&i).is_some() {
+            if expression.specific_type == SpecificType::Call {
                 let callname = block.name.clone() + &currentcounter.to_string();
                 let returnname = block.name.clone() + &(currentcounter + 1).to_string();
                 block.connections.push(callname.clone());
@@ -142,7 +149,7 @@ pub fn process_function(
 
                 let call_block = Block {
                     name: callname.clone(),
-                    lines: vec![i.clone()],
+                    lines: vec![expression],
                     connections: vec![returnname.clone()],
                     number: blocknum,
                 };
@@ -163,7 +170,7 @@ pub fn process_function(
                 currentcounter += 2;
                 continue;
             }
-            block.lines.push(i);
+            block.lines.push(expression);
         }
     }
     if functionname.strip_prefix("@").is_some() {

@@ -1,4 +1,3 @@
-use eecs_677_project_3::block::Block;
 use eecs_677_project_3::processing::{process_function, process_ll};
 static MAIN_LL: &str = "define i32 @main(i32 %argc) {
         %noArgs = icmp eq i32 %argc, 1
@@ -29,8 +28,6 @@ end:
 }";
 #[test]
 fn process_ll_extracts_functions() {
-    let path = format!("{}/test1.ll", env!("CARGO_MANIFEST_DIR"));
-
     let functions = process_ll(MAIN_LL.to_string()).expect("failed to process LLVM IR file");
 
     assert_eq!(functions.len(), 2);

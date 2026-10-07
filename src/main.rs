@@ -21,7 +21,7 @@ fn output_to_file(
     tempvec.sort();
     for block in &tempvec {
         let label = block
-            .lines
+            .get_lines_vec()
             .join("\\n")
             .replace("\n", "\\n")
             .replace("{", "")
