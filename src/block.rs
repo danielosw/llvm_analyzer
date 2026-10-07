@@ -1,15 +1,15 @@
 use std::cmp::Ordering;
 
 #[derive(Clone, Eq, PartialEq)]
-pub(crate) struct Block {
+pub struct Block {
     // Name of block.
-    pub(crate) name: String,
+    pub name: String,
     // The lines that make the body of the function
-    pub(crate) lines: Vec<String>,
+    pub lines: Vec<String>,
     // The connections the function has to other blocks
-    pub(crate) connections: Vec<String>,
+    pub connections: Vec<String>,
     // The number, only used for output
-    pub(crate) number: i32,
+    pub number: i32,
 }
 
 // I am only implementing this so I can use .sort

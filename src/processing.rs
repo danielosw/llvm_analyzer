@@ -22,16 +22,8 @@ use crate::block::Block;
 
 use std::collections::HashMap;
 
-use std::io::{BufRead, BufReader};
-
-use std::fs::File;
-
-pub(crate) fn proccess_ll(
-    file_name: String,
-) -> Result<HashMap<String, Vec<String>>, std::io::Error> {
-    let llfile = File::open(&file_name)?;
-    let reader = BufReader::new(llfile);
-    let lines: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
+pub fn process_ll(ll_text: String) -> Result<HashMap<String, Vec<String>>, std::io::Error> {
+    let lines: Vec<String> = ll_text.lines().map(|s| s.to_string()).collect();
     let mut functions: HashMap<String, Vec<String>> = HashMap::new();
     let mut infunction = false;
     let mut firstfuntion = false;
@@ -65,7 +57,7 @@ pub(crate) fn proccess_ll(
     Ok(functions)
 }
 
-pub(crate) fn process_function(
+pub fn process_function(
     lines: Vec<String>,
 ) -> (
     std::collections::HashMap<std::string::String, block::Block>,
@@ -170,9 +162,8 @@ pub(crate) fn process_function(
 
                 currentcounter += 2;
                 continue;
-            } else {
-                block.lines.push(i);
             }
+            block.lines.push(i);
         }
     }
     if functionname.strip_prefix("@").is_some() {

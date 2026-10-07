@@ -1,12 +1,9 @@
 use clap::Parser;
+use eecs_677_project_3::block::Block;
+use eecs_677_project_3::processing::{process_function, process_ll};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::prelude::*;
-mod block;
-mod proccessing;
-use crate::block::Block;
-use crate::proccessing::{proccess_ll, process_function};
-
+use std::io::{BufReader, prelude::*};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -57,7 +54,12 @@ fn output_to_file(
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let file_name = "./".to_owned() + &args.filename;
-    let functions = proccess_ll(file_name)?;
+    let llfile = File::open(&file_name)?;
+    let mut reader = BufReader::new(llfile);
+    // read the entire file into a string
+    let mut ll_text = String::new();
+    reader.read_to_string(&mut ll_text)?;
+    let functions = process_ll(ll_text)?;
     for function_list in functions.values() {
         let (blocks, function_name) = process_function(function_list.to_vec());
         output_to_file(blocks, &function_name)?;
