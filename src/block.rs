@@ -1,9 +1,9 @@
+use clap::builder::Str;
 use regex::{self, Regex};
 use std::sync::LazyLock;
 use std::{cmp::Ordering, fmt};
 
 use crate::block::BroadType::Other;
-
 macro_rules! make_static {
     ($expr:expr) => {{ LazyLock::new(|| $expr) }};
 }
@@ -17,7 +17,6 @@ define_regex!(REGEX_DEFINE, r"define .*? (.*?)\(");
 define_regex!(REGEX_RETURN, r"\bret\b");
 define_regex!(REGEX_CALL, r"\bcall\b");
 define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BroadType {
     Call,
@@ -48,6 +47,69 @@ pub enum SpecificType {
     Unkown,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+
+pub struct Multiply_int {
+    pub send_to: String,
+    pub possable_a: Vec<i128>,
+    pub possable_b: Vec<i128>,
+}
+impl Multiply_int {
+    fn resolve(&self) -> Vec<i128> {
+        let mut resulting: Vec<i128> = Vec::new();
+        for i in self.possable_a.clone() {
+            for j in self.possable_b.clone() {
+                if !resulting.contains(&(i * j)) {
+                    resulting.push(i * j);
+                }
+            }
+        }
+        resulting
+    }
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+
+pub struct Subtraction {
+    pub send_to: String,
+    pub possable_a: Vec<i128>,
+    pub possable_b: Vec<i128>,
+}
+impl Subtraction {
+    fn resolve(&self) -> Vec<i128> {
+        let mut resulting: Vec<i128> = Vec::new();
+        for i in self.possable_a.clone() {
+            for j in self.possable_b.clone() {
+                if !resulting.contains(&(i - j)) {
+                    resulting.push(i - j);
+                }
+            }
+        }
+        resulting
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+
+pub struct Addition {
+    pub send_to: String,
+    pub possable_a: Vec<i128>,
+    pub possable_b: Vec<i128>,
+}
+impl Addition {
+    fn resolve(&self) -> Vec<i128> {
+        let mut resulting: Vec<i128> = Vec::new();
+        for i in self.possable_a.clone() {
+            for j in self.possable_b.clone() {
+                if !resulting.contains(&(i + j)) {
+                    resulting.push(i + j);
+                }
+            }
+        }
+        resulting
+    }
+}
+
+impl SpecificType {}
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Expression {
     pub broad_type: BroadType,
