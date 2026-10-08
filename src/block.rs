@@ -1,5 +1,5 @@
-use clap::builder::Str;
 use regex::{self, Regex};
+use std::ops::{Add, Div, Mul, Sub};
 use std::sync::LazyLock;
 use std::{cmp::Ordering, fmt};
 
@@ -17,11 +17,16 @@ define_regex!(REGEX_DEFINE, r"define .*? (.*?)\(");
 define_regex!(REGEX_RETURN, r"\bret\b");
 define_regex!(REGEX_CALL, r"\bcall\b");
 define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
+define_regex!(
+    REGEX_NUMERIC,
+    r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
+);
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BroadType {
     Call,
     Start,
     End,
+    Numberic,
     Other,
     Unkown,
 }
@@ -46,69 +51,42 @@ pub enum SpecificType {
     Endbracket,
     Unkown,
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-
-pub struct Multiply_int {
-    pub send_to: String,
-    pub possable_a: Vec<i128>,
-    pub possable_b: Vec<i128>,
+pub enum NumericType {
+    Add,
+    Sub,
+    Div,
+    Mul,
 }
-impl Multiply_int {
-    fn resolve(&self) -> Vec<i128> {
-        let mut resulting: Vec<i128> = Vec::new();
-        for i in self.possable_a.clone() {
-            for j in self.possable_b.clone() {
-                if !resulting.contains(&(i * j)) {
-                    resulting.push(i * j);
-                }
+#[derive(Clone, Debug, PartialEq)]
+pub struct NumbericOperation<T> {
+    pub send_to: String,
+    pub possible_a: Vec<T>,
+    pub possible_b: Vec<T>,
+    pub subtype: NumericType,
+}
+impl<T> NumbericOperation<T>
+where
+    T: Copy + PartialEq + Add<Output = T> + Mul<Output = T> + Sub<Output = T> + Div<Output = T>,
+{
+    fn resolve(&self) -> Vec<T> {
+        let mut result = Vec::new();
+
+        for &a in &self.possible_a {
+            for &b in &self.possible_b {
+                result.push(match self.subtype {
+                    NumericType::Add => a + b,
+                    NumericType::Sub => a - b,
+                    NumericType::Div => a / b,
+                    NumericType::Mul => a * b,
+                });
             }
         }
-        resulting
+
+        result
     }
 }
-#[derive(Clone, Debug, Eq, PartialEq)]
-
-pub struct Subtraction {
-    pub send_to: String,
-    pub possable_a: Vec<i128>,
-    pub possable_b: Vec<i128>,
-}
-impl Subtraction {
-    fn resolve(&self) -> Vec<i128> {
-        let mut resulting: Vec<i128> = Vec::new();
-        for i in self.possable_a.clone() {
-            for j in self.possable_b.clone() {
-                if !resulting.contains(&(i - j)) {
-                    resulting.push(i - j);
-                }
-            }
-        }
-        resulting
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-
-pub struct Addition {
-    pub send_to: String,
-    pub possable_a: Vec<i128>,
-    pub possable_b: Vec<i128>,
-}
-impl Addition {
-    fn resolve(&self) -> Vec<i128> {
-        let mut resulting: Vec<i128> = Vec::new();
-        for i in self.possable_a.clone() {
-            for j in self.possable_b.clone() {
-                if !resulting.contains(&(i + j)) {
-                    resulting.push(i + j);
-                }
-            }
-        }
-        resulting
-    }
-}
-
 impl SpecificType {}
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Expression {
@@ -168,6 +146,19 @@ impl Expression {
             self.specific_type = SpecificType::Ret;
         } else if self.text.trim().starts_with("br ") {
             self.specific_type = SpecificType::Br;
+        } else if REGEX_NUMERIC.is_match(&self.text) {
+            let caputures_lol = REGEX_NUMERIC.captures_iter(&self.text).next().unwrap();
+            let number_type = &caputures_lol["OperatorType"];
+            self.specific_type = match number_type {
+                "Add" => SpecificType::Add,
+                "Sub" => SpecificType::Sub,
+                "Div" => SpecificType::Div,
+                "Mul" => SpecificType::Mul,
+                _ => {
+                    println!("Unkown numeric type! {}", number_type);
+                    SpecificType::Unkown
+                }
+            };
         } else if self.text.trim().ends_with("}") {
             self.specific_type = SpecificType::Endbracket;
         } else {
@@ -181,6 +172,10 @@ impl Expression {
             SpecificType::Define | SpecificType::Label => self.broad_type = BroadType::Start,
             SpecificType::Ret | SpecificType::Br => self.broad_type = BroadType::End,
             SpecificType::Endbracket => self.broad_type = BroadType::End,
+            SpecificType::Add | SpecificType::Div | SpecificType::Mul | SpecificType::Sub => {
+                self.broad_type = BroadType::Numberic
+            }
+
             _ => self.broad_type = Other,
         }
     }
