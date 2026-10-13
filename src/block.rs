@@ -17,6 +17,8 @@ define_regex!(
     REGEX_NUMERIC,
     r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
 );
+define_regex!(REGEX_BR, r"\bbr.*?\b");
+
 define_regex!(REGEX_LABEL, r"label %(.*?)(?:\,|$)");
 define_regex!(REGEX_DEFINE, r"define .*? (.*?)\(");
 define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
@@ -39,7 +41,7 @@ define_regex!(
     REGEX_LOAD,
     r"%(?P<loadto>.*?)\s{0,}=\s{0,}load\s{0,}(?P<type>.*?),\s{0,}ptr %(?P<loadfrom>.*?)$"
 );
-
+define_regex!(REGEX_END_BRACKET, r"^\s*}\s*$");
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BroadType {
     Call,
@@ -112,6 +114,9 @@ pub struct Expression {
     pub broad_type: BroadType,
     pub specific_type: SpecificType,
     pub text: String,
+    pub efrom: Option<String>,
+    pub eto: Option<String>,
+    pub varname: Option<String>,
 }
 impl Default for Expression {
     fn default() -> Self {
@@ -119,6 +124,9 @@ impl Default for Expression {
             broad_type: BroadType::Unkown,
             specific_type: SpecificType::Unkown,
             text: Default::default(),
+            efrom: Default::default(),
+            eto: Default::default(),
+            varname: Default::default(),
         }
     }
 }
@@ -133,6 +141,7 @@ impl Expression {
             text,
             broad_type,
             specific_type,
+            ..Default::default()
         }
     }
     pub fn new_with_text(text: String) -> Self {
@@ -140,6 +149,7 @@ impl Expression {
             text,
             broad_type: BroadType::Unkown,
             specific_type: SpecificType::Unkown,
+            ..Default::default()
         };
         expression.guess_specific_type();
         expression.guess_general_type();
@@ -150,6 +160,7 @@ impl Expression {
             text,
             broad_type: BroadType::Unkown,
             specific_type,
+            ..Default::default()
         };
         expression.guess_general_type();
         expression
@@ -163,8 +174,10 @@ impl Expression {
             self.specific_type = SpecificType::Label;
         } else if REGEX_RETURN.is_match(&self.text) {
             self.specific_type = SpecificType::Ret;
-        } else if self.text.trim().starts_with("br ") {
+        } else if REGEX_BR.is_match(&self.text) {
             self.specific_type = SpecificType::Br;
+        } else if REGEX_END_BRACKET.is_match(&self.text) {
+            self.specific_type = SpecificType::Endbracket;
         } else if REGEX_NUMERIC.is_match(&self.text) {
             let caputures_lol = REGEX_NUMERIC.captures_iter(&self.text).next().unwrap();
             let number_type = &caputures_lol["OperatorType"];
@@ -178,8 +191,6 @@ impl Expression {
                     SpecificType::Unkown
                 }
             };
-        } else if self.text.trim().ends_with("}") {
-            self.specific_type = SpecificType::Endbracket;
         } else {
             self.specific_type = SpecificType::Unkown;
         }
