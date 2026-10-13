@@ -13,14 +13,33 @@ macro_rules! define_regex {
     };
 }
 
-define_regex!(REGEX_DEFINE, r"define .*? (.*?)\(");
-define_regex!(REGEX_RETURN, r"\bret\b");
-define_regex!(REGEX_CALL, r"\bcall\b");
-define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
 define_regex!(
     REGEX_NUMERIC,
     r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
 );
+define_regex!(REGEX_LABEL, r"label %(.*?)(?:\,|$)");
+define_regex!(REGEX_DEFINE, r"define .*? (.*?)\(");
+define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
+define_regex!(REGEX_RETURN, r"\bret\b");
+define_regex!(REGEX_CALL, r"\bcall\b");
+define_regex!(
+    REGEX_STORE,
+    r"store (?P<storetype>.*?) %(?P<storefrom>.*?), ptr %(?P<storeto>.*?)$"
+);
+define_regex!(
+    REGEX_STORE_CONST,
+    r"store (?P<storetype>.*?) (?P<storefrom>.*?), ptr %(?P<storeto>.*?)$"
+);
+define_regex!(
+    REGEX_SOURCE,
+    r"%(?P<varname>.*?) {0,}= {0,}call .*?@(.*?)\b"
+);
+define_regex!(REGEX_SINK, r"\bcall void @SINK\(.*? %(?P<varname>.*?)\)");
+define_regex!(
+    REGEX_LOAD,
+    r"%(?P<loadto>.*?)\s{0,}=\s{0,}load\s{0,}(?P<type>.*?),\s{0,}ptr %(?P<loadfrom>.*?)$"
+);
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BroadType {
     Call,
@@ -177,6 +196,12 @@ impl Expression {
             }
 
             _ => self.broad_type = Other,
+        }
+    }
+
+    pub fn resolve(self) {
+        if self.broad_type == BroadType::Numberic {
+            return;
         }
     }
 }
