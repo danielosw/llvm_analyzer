@@ -1,5 +1,4 @@
 use regex::{self, Regex};
-use std::ops::{Add, Div, Mul, Sub};
 use std::sync::LazyLock;
 use std::{cmp::Ordering, fmt};
 
@@ -71,42 +70,6 @@ pub enum SpecificType {
     Label,
     Endbracket,
     Unkown,
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-
-pub enum NumericType {
-    Add,
-    Sub,
-    Div,
-    Mul,
-}
-#[derive(Clone, Debug, PartialEq)]
-pub struct NumbericOperation<T> {
-    pub send_to: String,
-    pub possible_a: Vec<T>,
-    pub possible_b: Vec<T>,
-    pub subtype: NumericType,
-}
-impl<T> NumbericOperation<T>
-where
-    T: Copy + PartialEq + Add<Output = T> + Mul<Output = T> + Sub<Output = T> + Div<Output = T>,
-{
-    fn resolve(&self) -> Vec<T> {
-        let mut result = Vec::new();
-
-        for &a in &self.possible_a {
-            for &b in &self.possible_b {
-                result.push(match self.subtype {
-                    NumericType::Add => a + b,
-                    NumericType::Sub => a - b,
-                    NumericType::Div => a / b,
-                    NumericType::Mul => a * b,
-                });
-            }
-        }
-
-        result
-    }
 }
 impl SpecificType {}
 #[derive(Clone, Eq, PartialEq, Debug)]
