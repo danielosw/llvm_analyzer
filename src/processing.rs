@@ -1,17 +1,5 @@
 use crate::block::{self, SpecificType};
 use crate::expression::Expression;
-use regex::{self, Regex};
-use std::sync::LazyLock;
-
-macro_rules! make_static {
-    ($expr:expr) => {{ LazyLock::new(|| $expr) }};
-}
-macro_rules! define_regex {
-    ($name:ident, $text:expr) => {
-        static $name: LazyLock<std::option::Option<regex::Regex>> =
-            make_static!({ Regex::new($text).ok() });
-    };
-}
 
 use crate::block::Block;
 

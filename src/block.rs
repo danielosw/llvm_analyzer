@@ -1,16 +1,5 @@
-use crate::block::BroadType::Other;
 use crate::expression;
-use regex::{self, Regex};
 use std::cmp::Ordering;
-use std::sync::LazyLock;
-macro_rules! make_static {
-    ($expr:expr) => {{ LazyLock::new(|| $expr) }};
-}
-macro_rules! define_regex {
-    ($name:ident, $text:expr) => {
-        static $name: LazyLock<regex::Regex> = make_static!({ Regex::new($text).ok().unwrap() });
-    };
-}
 // superclass of string
 pub trait IntOrReg {
     fn is_int(&self) -> bool;
@@ -42,43 +31,6 @@ impl IntOrReg for String {
     }
 }
 
-define_regex!(
-    REGEX_NUMERIC,
-    r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
-);
-define_regex!(REGEX_BR, r"\bbr.*?\b");
-define_regex!(
-    REGEX_NEW_BR,
-    r"^\s*br (?:label (?P<sendto1>[^\s,]+)|(?P<matchtype>[^\s]+) (?P<checkvar>[^,\s]+), label (?P<sendto2>[^,\s]+), label (?P<sendto3>[^\s,]+))\s*$"
-);
-define_regex!(
-    REGEX_DEFINE,
-    r"^\s*define\s+(?P<type>\S+)\s+(?P<name>@[^(]+)\((?P<args>[^)]*)\)"
-);
-define_regex!(REGEX_BLOCK_LABEL, r"^\s*(?P<name>.*?):");
-define_regex!(REGEX_RETURN, r"\bret\b");
-define_regex!(REGEX_CALL, r"\bcall\b");
-define_regex!(
-    REGEX_STORE,
-    r"store (?P<storetype>.*?) %(?P<storefrom>.*?), ptr %(?P<storeto>.*?)$"
-);
-define_regex!(
-    REGEX_STORE_CONST,
-    r"store (?P<storetype>.*?) (?P<storefrom>.*?), ptr %(?P<storeto>.*?)$"
-);
-define_regex!(
-    REGEX_SOURCE,
-    r"%(?P<outvar>.*?) {0,}= {0,}call (?P<calltype>.*?) @(:?P<funcname>.*?)\b"
-);
-define_regex!(
-    REGEX_SINK,
-    r"\bcall (?P<calltype>.*?) @(:?P<funcname>.*?)\(.*? (?P<varname>.*?)\)"
-);
-define_regex!(
-    REGEX_LOAD,
-    r"%(?P<loadto>.*?)\s{0,}=\s{0,}load\s{0,}(?P<type>.*?),\s{0,}ptr %(?P<loadfrom>.*?)$"
-);
-define_regex!(REGEX_END_BRACKET, r"^\s*}\s*$");
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BroadType {
     Call,
