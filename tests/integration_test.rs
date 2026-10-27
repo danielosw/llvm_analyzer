@@ -1,4 +1,5 @@
-use eecs_677_project_3::block::{Block, BroadType, Expression, SpecificType};
+use eecs_677_project_3::block::{Block, BroadType, SpecificType};
+use eecs_677_project_3::expression::Expression;
 use eecs_677_project_3::processing::{process_function, process_ll};
 static MAIN_LL: &str = "define i32 @main(i32 %argc, i32 %argv) {
         %varT = add i32 1, 0

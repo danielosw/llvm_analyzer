@@ -1,4 +1,5 @@
-use crate::block::{self, Expression, SpecificType};
+use crate::block::{self, SpecificType};
+use crate::expression::Expression;
 use regex::{self, Regex};
 use std::sync::LazyLock;
 
@@ -113,7 +114,7 @@ pub fn process_function(
         } else {
             // we are in a block
             if expression.specific_type == SpecificType::Ret {
-                let expression = block::Expression::new_with_text(i.clone());
+                let expression = Expression::new_with_text(i.clone());
                 block.lines.push(expression);
                 blocks.insert(block.clone().name, block.clone());
                 inblock = false;
@@ -121,7 +122,7 @@ pub fn process_function(
                 continue;
             }
             if matches!(expression.specific_type, SpecificType::Br { .. }) {
-                let expression = block::Expression::new_with_text(i.clone());
+                let expression = Expression::new_with_text(i.clone());
                 block.lines.push(expression.clone());
                 if let SpecificType::Br {
                     sendto1, sendto2, ..
