@@ -260,10 +260,4 @@ impl Expression {
             _ => self.broad_type = Other,
         }
     }
-
-    pub fn resolve(self) {
-        if self.broad_type == BroadType::Numberic {
-            return;
-        }
-    }
 }
