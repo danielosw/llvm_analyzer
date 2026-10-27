@@ -1,7 +1,7 @@
 use eecs_677_project_3::block::{Block, BroadType, Expression, SpecificType};
 use eecs_677_project_3::processing::{process_function, process_ll};
-use std::cmp::Ordering;
 static MAIN_LL: &str = "define i32 @main(i32 %argc) {
+        %varT = add i32 1, 0
         %noArgs = icmp eq i32 %argc, 1
         br i1 %noArgs, label %lbl_t, label %lbl_f
 lbl_t:
@@ -38,7 +38,8 @@ fn process_ll_extracts_functions() {
 
     let main_lines = &functions["@main"];
     assert_eq!(main_lines.first().unwrap(), "define i32 @main(i32 %argc) {");
-    assert_eq!(main_lines.get(11).unwrap(), "        ret i32 %var");
+    assert_eq!(main_lines.get(1).unwrap(), "        %varT = add i32 1, 0");
+    assert_eq!(main_lines.get(12).unwrap(), "        ret i32 %var");
 
     let function2_lines = &functions["@function2"];
     assert!(
@@ -94,8 +95,13 @@ fn expression_classifies_llvm_text() {
         ("}", SpecificType::Endbracket, BroadType::End),
         (
             "%value = add i32 1, 2",
-            SpecificType::Unkown,
-            BroadType::Other,
+            SpecificType::Add {
+                result_reg: "value".to_string(),
+                operand_a: "1".to_string(),
+                operand_b: "2".to_string(),
+                operand_type: "i32".to_string(),
+            },
+            BroadType::Numberic,
         ),
     ];
 
@@ -112,6 +118,93 @@ fn expression_display_returns_source_text() {
     let expression = Expression::new_with_text("ret i32 0".to_string());
 
     assert_eq!(expression.to_string(), "ret i32 0");
+}
+
+#[test]
+fn expression_display_formats_arithmetic_expressions() {
+    let cases = [
+        (
+            SpecificType::Add {
+                result_reg: "result".to_string(),
+                operand_a: "1".to_string(),
+                operand_b: "2".to_string(),
+                operand_type: "i32".to_string(),
+            },
+            "%result = add i32 1, 2",
+        ),
+        (
+            SpecificType::Sub {
+                result_reg: "result".to_string(),
+                operand_a: "4".to_string(),
+                operand_b: "3".to_string(),
+                operand_type: "i32".to_string(),
+            },
+            "%result = sub i32 4, 3",
+        ),
+        (
+            SpecificType::Div {
+                result_reg: "result".to_string(),
+                operand_a: "8".to_string(),
+                operand_b: "2".to_string(),
+                operand_type: "i32".to_string(),
+            },
+            "%result = div i32 8, 2",
+        ),
+        (
+            SpecificType::Mul {
+                result_reg: "result".to_string(),
+                operand_a: "3".to_string(),
+                operand_b: "5".to_string(),
+                operand_type: "i32".to_string(),
+            },
+            "%result = mul i32 3, 5",
+        ),
+    ];
+
+    for (specific_type, expected) in cases {
+        let expression = Expression::new(
+            "source text".to_string(),
+            BroadType::Numberic,
+            specific_type,
+        );
+
+        assert_eq!(expression.to_string(), expected);
+    }
+}
+
+#[test]
+fn expression_display_formats_parsed_arithmetic_expression() {
+    let expression = Expression::new_with_text("%value = add i32 1, 2".to_string());
+
+    assert_eq!(expression.to_string(), "%value = add i32 1, 2");
+}
+
+#[test]
+fn main_ll_instructions_format_correctly_after_processing() {
+    let functions = process_ll(MAIN_LL.to_string()).expect("failed to process LLVM IR file");
+    let expected: Vec<String> = MAIN_LL
+        .lines()
+        .filter(|line| {
+            let instruction = line.trim();
+            !instruction.is_empty() && instruction != "}"
+        })
+        .map(|line| line.trim().to_string())
+        .collect();
+    let mut formatted = Vec::new();
+
+    for function_name in ["@main", "@function2"] {
+        let (blocks, _) = process_function(functions[function_name].clone());
+        let mut blocks: Vec<_> = blocks.into_values().collect();
+        blocks.sort();
+
+        for expression in blocks.into_iter().flat_map(|block| block.lines) {
+            if !expression.text.trim().is_empty() {
+                formatted.push(expression.to_string().trim().to_string());
+            }
+        }
+    }
+
+    assert_eq!(formatted, expected);
 }
 
 #[test]

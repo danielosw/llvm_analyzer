@@ -55,15 +55,43 @@ pub enum BroadType {
 pub enum SpecificType {
     Alloca,
     Getelementpointer,
-    Load,
-    Store,
+    Load {
+        load_to: String,
+        load_from: String,
+        load_type: String,
+    },
+    Store {
+        store_type: String,
+        store_from: String,
+        store_to: String,
+    },
     Ret,
     Icmp,
     Br,
-    Add,
-    Sub,
-    Div,
-    Mul,
+    Add {
+        result_reg: String,
+        operand_a: String,
+        operand_b: String,
+        operand_type: String,
+    },
+    Sub {
+        result_reg: String,
+        operand_a: String,
+        operand_b: String,
+        operand_type: String,
+    },
+    Div {
+        result_reg: String,
+        operand_a: String,
+        operand_b: String,
+        operand_type: String,
+    },
+    Mul {
+        result_reg: String,
+        operand_a: String,
+        operand_b: String,
+        operand_type: String,
+    },
     Phi,
     Call,
     Define,
@@ -77,9 +105,6 @@ pub struct Expression {
     pub broad_type: BroadType,
     pub specific_type: SpecificType,
     pub text: String,
-    pub efrom: Option<String>,
-    pub eto: Option<String>,
-    pub varname: Option<String>,
 }
 impl Default for Expression {
     fn default() -> Self {
@@ -87,15 +112,67 @@ impl Default for Expression {
             broad_type: BroadType::Unkown,
             specific_type: SpecificType::Unkown,
             text: Default::default(),
-            efrom: Default::default(),
-            eto: Default::default(),
-            varname: Default::default(),
         }
     }
 }
 impl fmt::Display for Expression {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.text)
+        if self.broad_type != BroadType::Numberic {
+            return formatter.write_str(&self.text);
+        } else {
+            // reconstruct the expression
+            match self.specific_type {
+                SpecificType::Add {
+                    ref result_reg,
+                    ref operand_a,
+                    ref operand_b,
+                    ref operand_type,
+                } => {
+                    write!(
+                        formatter,
+                        "%{} = add {} {}, {}",
+                        result_reg, operand_type, operand_a, operand_b
+                    )
+                }
+                SpecificType::Sub {
+                    ref result_reg,
+                    ref operand_a,
+                    ref operand_b,
+                    ref operand_type,
+                } => {
+                    write!(
+                        formatter,
+                        "%{} = sub {} {}, {}",
+                        result_reg, operand_type, operand_a, operand_b
+                    )
+                }
+                SpecificType::Div {
+                    ref result_reg,
+                    ref operand_a,
+                    ref operand_b,
+                    ref operand_type,
+                } => {
+                    write!(
+                        formatter,
+                        "%{} = div {} {}, {}",
+                        result_reg, operand_type, operand_a, operand_b
+                    )
+                }
+                SpecificType::Mul {
+                    ref result_reg,
+                    ref operand_a,
+                    ref operand_b,
+                    ref operand_type,
+                } => {
+                    write!(
+                        formatter,
+                        "%{} = mul {} {}, {}",
+                        result_reg, operand_type, operand_a, operand_b
+                    )
+                }
+                _ => unreachable!(),
+            }
+        }
     }
 }
 impl Expression {
@@ -145,10 +222,31 @@ impl Expression {
             let caputures_lol = REGEX_NUMERIC.captures_iter(&self.text).next().unwrap();
             let number_type = &caputures_lol["OperatorType"];
             self.specific_type = match number_type {
-                "Add" => SpecificType::Add,
-                "Sub" => SpecificType::Sub,
-                "Div" => SpecificType::Div,
-                "Mul" => SpecificType::Mul,
+                "add" => SpecificType::Add {
+                    // regex is     r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
+                    result_reg: caputures_lol["RegisterName"].to_string(),
+                    operand_a: caputures_lol["NumberA"].to_string(),
+                    operand_b: caputures_lol["NumberB"].to_string(),
+                    operand_type: caputures_lol["NumberType"].to_string(),
+                },
+                "sub" => SpecificType::Sub {
+                    result_reg: caputures_lol["RegisterName"].to_string(),
+                    operand_a: caputures_lol["NumberA"].to_string(),
+                    operand_b: caputures_lol["NumberB"].to_string(),
+                    operand_type: caputures_lol["NumberType"].to_string(),
+                },
+                "div" => SpecificType::Div {
+                    result_reg: caputures_lol["RegisterName"].to_string(),
+                    operand_a: caputures_lol["NumberA"].to_string(),
+                    operand_b: caputures_lol["NumberB"].to_string(),
+                    operand_type: caputures_lol["NumberType"].to_string(),
+                },
+                "mul" => SpecificType::Mul {
+                    result_reg: caputures_lol["RegisterName"].to_string(),
+                    operand_a: caputures_lol["NumberA"].to_string(),
+                    operand_b: caputures_lol["NumberB"].to_string(),
+                    operand_type: caputures_lol["NumberType"].to_string(),
+                },
                 _ => {
                     println!("Unkown numeric type! {}", number_type);
                     SpecificType::Unkown
@@ -165,9 +263,30 @@ impl Expression {
             SpecificType::Define | SpecificType::Label => self.broad_type = BroadType::Start,
             SpecificType::Ret | SpecificType::Br => self.broad_type = BroadType::End,
             SpecificType::Endbracket => self.broad_type = BroadType::End,
-            SpecificType::Add | SpecificType::Div | SpecificType::Mul | SpecificType::Sub => {
-                self.broad_type = BroadType::Numberic
+            SpecificType::Add {
+                result_reg: _,
+                operand_a: _,
+                operand_b: _,
+                operand_type: _,
             }
+            | SpecificType::Div {
+                result_reg: _,
+                operand_a: _,
+                operand_b: _,
+                operand_type: _,
+            }
+            | SpecificType::Mul {
+                result_reg: _,
+                operand_a: _,
+                operand_b: _,
+                operand_type: _,
+            }
+            | SpecificType::Sub {
+                result_reg: _,
+                operand_a: _,
+                operand_b: _,
+                operand_type: _,
+            } => self.broad_type = BroadType::Numberic,
 
             _ => self.broad_type = Other,
         }
