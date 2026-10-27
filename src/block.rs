@@ -11,16 +11,51 @@ macro_rules! define_regex {
         static $name: LazyLock<regex::Regex> = make_static!({ Regex::new($text).ok().unwrap() });
     };
 }
+// superclass of string
+pub trait IntOrReg {
+    fn is_int(&self) -> bool;
+    fn is_reg(&self) -> bool;
+}
+// returns the int if in returns reg with leading % removed if reg
+pub trait EscapeIntOrReg {
+    fn escape_int_or_reg(&self) -> String;
+}
+
+impl EscapeIntOrReg for String {
+    fn escape_int_or_reg(&self) -> String {
+        if self.is_reg()
+            && let Some(stripped) = self.strip_prefix('%')
+        {
+            return stripped.to_string();
+        }
+        self.clone()
+    }
+}
+
+impl IntOrReg for String {
+    fn is_int(&self) -> bool {
+        self.parse::<i32>().is_ok()
+    }
+
+    fn is_reg(&self) -> bool {
+        self.starts_with('%')
+    }
+}
 
 define_regex!(
     REGEX_NUMERIC,
     r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
 );
 define_regex!(REGEX_BR, r"\bbr.*?\b");
-
-define_regex!(REGEX_LABEL, r"label %(.*?)(?:\,|$)");
-define_regex!(REGEX_DEFINE, r"define .*? (.*?)\(");
-define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
+define_regex!(
+    REGEX_NEW_BR,
+    r"^\s*br (?:label (?P<sendto1>[^\s,]+)|(?P<matchtype>[^\s]+) (?P<checkvar>[^,\s]+), label (?P<sendto2>[^,\s]+), label (?P<sendto3>[^\s,]+))\s*$"
+);
+define_regex!(
+    REGEX_DEFINE,
+    r"^\s*define\s+(?P<type>\S+)\s+(?P<name>@[^(]+)\((?P<args>[^)]*)\)"
+);
+define_regex!(REGEX_BLOCK_LABEL, r"^\s*(?P<name>.*?):");
 define_regex!(REGEX_RETURN, r"\bret\b");
 define_regex!(REGEX_CALL, r"\bcall\b");
 define_regex!(
@@ -33,9 +68,12 @@ define_regex!(
 );
 define_regex!(
     REGEX_SOURCE,
-    r"%(?P<varname>.*?) {0,}= {0,}call .*?@(.*?)\b"
+    r"%(?P<outvar>.*?) {0,}= {0,}call (?P<calltype>.*?) @(:?P<funcname>.*?)\b"
 );
-define_regex!(REGEX_SINK, r"\bcall void @SINK\(.*? %(?P<varname>.*?)\)");
+define_regex!(
+    REGEX_SINK,
+    r"\bcall (?P<calltype>.*?) @(:?P<funcname>.*?)\(.*? (?P<varname>.*?)\)"
+);
 define_regex!(
     REGEX_LOAD,
     r"%(?P<loadto>.*?)\s{0,}=\s{0,}load\s{0,}(?P<type>.*?),\s{0,}ptr %(?P<loadfrom>.*?)$"
@@ -67,7 +105,12 @@ pub enum SpecificType {
     },
     Ret,
     Icmp,
-    Br,
+    Br {
+        sendto1: String,
+        matchtype: Option<String>,
+        checkvar: Option<String>,
+        sendto2: Option<String>,
+    },
     Add {
         result_reg: String,
         operand_a: String,
@@ -94,12 +137,48 @@ pub enum SpecificType {
     },
     Phi,
     Call,
-    Define,
-    Label,
+    Define {
+        dtype: String,
+        name: String,
+        args: String,
+    },
+    Label {
+        name: String,
+    },
     Endbracket,
     Unkown,
 }
-impl SpecificType {}
+impl SpecificType {
+    fn arithmetic_parts(&self) -> Option<(&'static str, &str, &str, &str, &str)> {
+        match self {
+            Self::Add {
+                result_reg,
+                operand_a,
+                operand_b,
+                operand_type,
+            } => Some(("add", result_reg, operand_type, operand_a, operand_b)),
+            Self::Sub {
+                result_reg,
+                operand_a,
+                operand_b,
+                operand_type,
+            } => Some(("sub", result_reg, operand_type, operand_a, operand_b)),
+            Self::Div {
+                result_reg,
+                operand_a,
+                operand_b,
+                operand_type,
+            } => Some(("div", result_reg, operand_type, operand_a, operand_b)),
+            Self::Mul {
+                result_reg,
+                operand_a,
+                operand_b,
+                operand_type,
+            } => Some(("mul", result_reg, operand_type, operand_a, operand_b)),
+            _ => None,
+        }
+    }
+}
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Expression {
     pub broad_type: BroadType,
@@ -117,61 +196,67 @@ impl Default for Expression {
 }
 impl fmt::Display for Expression {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.broad_type != BroadType::Numberic {
+        if self.broad_type != BroadType::Numberic && self.broad_type != BroadType::End {
             return formatter.write_str(&self.text);
-        } else {
-            // reconstruct the expression
-            match self.specific_type {
-                SpecificType::Add {
-                    ref result_reg,
-                    ref operand_a,
-                    ref operand_b,
-                    ref operand_type,
-                } => {
-                    write!(
-                        formatter,
-                        "%{} = add {} {}, {}",
-                        result_reg, operand_type, operand_a, operand_b
-                    )
-                }
-                SpecificType::Sub {
-                    ref result_reg,
-                    ref operand_a,
-                    ref operand_b,
-                    ref operand_type,
-                } => {
-                    write!(
-                        formatter,
-                        "%{} = sub {} {}, {}",
-                        result_reg, operand_type, operand_a, operand_b
-                    )
-                }
-                SpecificType::Div {
-                    ref result_reg,
-                    ref operand_a,
-                    ref operand_b,
-                    ref operand_type,
-                } => {
-                    write!(
-                        formatter,
-                        "%{} = div {} {}, {}",
-                        result_reg, operand_type, operand_a, operand_b
-                    )
-                }
-                SpecificType::Mul {
-                    ref result_reg,
-                    ref operand_a,
-                    ref operand_b,
-                    ref operand_type,
-                } => {
-                    write!(
-                        formatter,
-                        "%{} = mul {} {}, {}",
-                        result_reg, operand_type, operand_a, operand_b
-                    )
-                }
-                _ => unreachable!(),
+        }
+        if self.broad_type == BroadType::Numberic {
+            let (operator, result_reg, operand_type, operand_a, operand_b) = self
+                .specific_type
+                .arithmetic_parts()
+                .expect("numeric expression must have an arithmetic specific type");
+
+            write!(
+                formatter,
+                "%{} = {} {} {}, {}",
+                result_reg, operator, operand_type, operand_a, operand_b
+            )
+        } else if self.broad_type == BroadType::End {
+            if (!matches!(self.specific_type, SpecificType::Br { .. })) {
+                return formatter.write_str(&self.text);
             }
+            match self.specific_type {
+                SpecificType::Br {
+                    ref sendto1,
+                    ref matchtype,
+                    ref checkvar,
+                    ref sendto2,
+                } => {
+                    if let Some(matchtype) = matchtype {
+                        if let Some(checkvar) = checkvar {
+                            if let Some(sendto2) = sendto2 {
+                                write!(
+                                    formatter,
+                                    "br {} {}, label {}, label {}",
+                                    matchtype, checkvar, sendto1, sendto2
+                                )
+                            } else {
+                                write!(
+                                    formatter,
+                                    "br {} {}, label {}",
+                                    matchtype, checkvar, sendto1
+                                )
+                            }
+                        } else {
+                            write!(formatter, "br label {}", sendto1)
+                        }
+                    } else {
+                        write!(formatter, "br label {}", sendto1)
+                    }
+                }
+                _ => unreachable!("Unexpected branch type: {}", self.text),
+            }
+        } else if self.broad_type == BroadType::Start {
+            match &self.specific_type {
+                SpecificType::Label { name } => {
+                    write!(formatter, "{}:", name)
+                }
+                SpecificType::Define { dtype, name, args } => {
+                    write!(formatter, "define {} {}({}) {{", dtype, name, args)
+                }
+                _ => formatter.write_str(&self.text),
+            }
+        } else {
+            unreachable!("Unexpected broad type: {}", self.text)
         }
     }
 }
@@ -209,13 +294,38 @@ impl Expression {
         if REGEX_CALL.is_match(&self.text) {
             self.specific_type = SpecificType::Call;
         } else if REGEX_DEFINE.is_match(&self.text) {
-            self.specific_type = SpecificType::Define;
+            let captures = REGEX_DEFINE.captures(&self.text).unwrap();
+            self.specific_type = SpecificType::Define {
+                dtype: captures.name("type").unwrap().as_str().to_string(),
+                name: captures.name("name").unwrap().as_str().to_string(),
+                args: captures.name("args").unwrap().as_str().to_string(),
+            };
         } else if REGEX_BLOCK_LABEL.is_match(&self.text) {
-            self.specific_type = SpecificType::Label;
+            let captures = REGEX_BLOCK_LABEL.captures(&self.text).unwrap();
+            self.specific_type = SpecificType::Label {
+                name: captures.name("name").unwrap().as_str().to_string(),
+            };
         } else if REGEX_RETURN.is_match(&self.text) {
             self.specific_type = SpecificType::Ret;
         } else if REGEX_BR.is_match(&self.text) {
-            self.specific_type = SpecificType::Br;
+            let captures = REGEX_NEW_BR.captures(&self.text).unwrap();
+            if let Some(sendto1) = captures.name("sendto1") {
+                // Handle the case where there's a simple branch to a label
+                self.specific_type = SpecificType::Br {
+                    sendto1: sendto1.as_str().to_string(),
+                    matchtype: None,
+                    checkvar: None,
+                    sendto2: None,
+                };
+            } else if let Some(matchtype) = captures.name("matchtype") {
+                // Handle the case where there's a conditional branch
+                self.specific_type = SpecificType::Br {
+                    sendto1: captures.name("sendto2").unwrap().as_str().to_string(),
+                    matchtype: Some(matchtype.as_str().to_string()),
+                    checkvar: captures.name("checkvar").map(|v| v.as_str().to_string()),
+                    sendto2: captures.name("sendto3").map(|v| v.as_str().to_string()),
+                };
+            }
         } else if REGEX_END_BRACKET.is_match(&self.text) {
             self.specific_type = SpecificType::Endbracket;
         } else if REGEX_NUMERIC.is_match(&self.text) {
@@ -260,33 +370,15 @@ impl Expression {
     pub fn guess_general_type(&mut self) {
         match self.specific_type {
             SpecificType::Call => self.broad_type = BroadType::Call,
-            SpecificType::Define | SpecificType::Label => self.broad_type = BroadType::Start,
-            SpecificType::Ret | SpecificType::Br => self.broad_type = BroadType::End,
+            SpecificType::Define { .. } | SpecificType::Label { .. } => {
+                self.broad_type = BroadType::Start
+            }
+            SpecificType::Ret | SpecificType::Br { .. } => self.broad_type = BroadType::End,
             SpecificType::Endbracket => self.broad_type = BroadType::End,
-            SpecificType::Add {
-                result_reg: _,
-                operand_a: _,
-                operand_b: _,
-                operand_type: _,
-            }
-            | SpecificType::Div {
-                result_reg: _,
-                operand_a: _,
-                operand_b: _,
-                operand_type: _,
-            }
-            | SpecificType::Mul {
-                result_reg: _,
-                operand_a: _,
-                operand_b: _,
-                operand_type: _,
-            }
-            | SpecificType::Sub {
-                result_reg: _,
-                operand_a: _,
-                operand_b: _,
-                operand_type: _,
-            } => self.broad_type = BroadType::Numberic,
+            SpecificType::Add { .. }
+            | SpecificType::Div { .. }
+            | SpecificType::Mul { .. }
+            | SpecificType::Sub { .. } => self.broad_type = BroadType::Numberic,
 
             _ => self.broad_type = Other,
         }

@@ -11,9 +11,6 @@ macro_rules! define_regex {
             make_static!({ Regex::new($text).ok() });
     };
 }
-define_regex!(REGEX_LABEL, r"label %(.*?)(?:\,|$)");
-define_regex!(REGEX_DEFINE, r"define .*? (.*?)\(");
-define_regex!(REGEX_BLOCK_LABEL, r"^\s*(.*?):");
 
 use crate::block::Block;
 
@@ -31,10 +28,12 @@ pub fn process_ll(ll_text: String) -> Result<HashMap<String, Vec<String>>, std::
 
         let expression = Expression::new_with_text(j.clone());
         if !infunction {
-            if expression.specific_type == SpecificType::Define {
-                let define = REGEX_DEFINE.as_ref().unwrap().captures(&j).unwrap();
-
-                name = define.get(1).unwrap().as_str().to_owned();
+            if matches!(expression.specific_type, SpecificType::Define { .. }) {
+                let define = match expression.specific_type {
+                    SpecificType::Define { ref name, .. } => name.to_string(),
+                    _ => unreachable!(),
+                };
+                name = define;
                 function.push(i);
                 infunction = true;
                 firstfuntion = true;
@@ -77,26 +76,27 @@ pub fn process_function(
         let expression = Expression::new_with_text(i.clone());
 
         if !inblock {
-            if expression.specific_type == SpecificType::Define {
-                let define = REGEX_DEFINE.as_ref().unwrap().captures(&i).unwrap();
-
-                // move the function name into the functionname variable
-                functionname = define.get(1).unwrap().as_str().to_owned();
+            if matches!(expression.specific_type, SpecificType::Define { .. }) {
+                functionname = match expression.specific_type {
+                    SpecificType::Define { ref name, .. } => name.to_string(),
+                    _ => unreachable!(),
+                };
                 blocknames.push(functionname.clone());
                 inblock = true;
                 // create a new block
                 block = Block {
-                    name: define.get(1).unwrap().as_str().to_owned(),
+                    name: functionname.clone(),
                     number: blocknum,
                     ..Default::default()
                 };
                 block.lines.push(expression.clone());
                 blocknum += 1;
             }
-            if expression.specific_type == SpecificType::Label {
-                let labels = REGEX_BLOCK_LABEL.as_ref().unwrap().captures(&i).unwrap();
-
-                let label = labels.get(1).unwrap().as_str().to_owned();
+            if matches!(expression.specific_type, SpecificType::Label { .. }) {
+                let label = match expression.specific_type {
+                    SpecificType::Label { ref name } => name.to_string(),
+                    _ => unreachable!(),
+                };
                 blocknames.push(label.clone());
                 // create a new block
                 block = Block {
@@ -120,18 +120,18 @@ pub fn process_function(
                 currentcounter = 1;
                 continue;
             }
-            if expression.specific_type == SpecificType::Br {
+            if matches!(expression.specific_type, SpecificType::Br { .. }) {
                 let expression = block::Expression::new_with_text(i.clone());
-                block.lines.push(expression);
-                let labels = REGEX_LABEL.as_ref().unwrap().captures_iter(&i);
-                let captures: Vec<&str> = labels
-                    .filter(|f| f.get(1).is_some())
-                    .map(|f| f.get(1).unwrap().as_str())
-                    .collect();
-                for j in captures {
-                    block
-                        .connections
-                        .push(j.strip_prefix('%').unwrap_or(j).to_owned());
+                block.lines.push(expression.clone());
+                if let SpecificType::Br {
+                    sendto1, sendto2, ..
+                } = expression.specific_type
+                {
+                    block.connections.push(sendto1);
+
+                    if let Some(st2) = sendto2 {
+                        block.connections.push(st2);
+                    }
                 }
                 blocks.insert(block.name.clone(), block.clone());
                 inblock = false;

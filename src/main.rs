@@ -1,5 +1,5 @@
 use clap::Parser;
-use eecs_677_project_3::block::Block;
+use eecs_677_project_3::block::{Block, EscapeIntOrReg};
 use eecs_677_project_3::processing::{process_function, process_ll};
 use std::collections::HashMap;
 use std::fs::File;
@@ -21,7 +21,10 @@ fn output_to_file(
     tempvec.sort();
     for block in &tempvec {
         let label = block
-            .get_lines_vec()
+            .lines
+            .iter()
+            .map(|expression| expression.to_string())
+            .collect::<Vec<String>>()
             .join("\\n")
             .replace("\n", "\\n")
             .replace("{", "")
@@ -35,7 +38,8 @@ fn output_to_file(
     }
     for block in tempvec {
         for (j, i) in block.connections.clone().into_iter().enumerate() {
-            let target = blocks.get(&i).unwrap();
+            println!("{} -> {}", block.number, i);
+            let target = blocks.get(&i.escape_int_or_reg()).unwrap();
 
             output += &("\t\tNode".to_owned()
                 + &block.number.to_string()

@@ -1,6 +1,6 @@
 use eecs_677_project_3::block::{Block, BroadType, Expression, SpecificType};
 use eecs_677_project_3::processing::{process_function, process_ll};
-static MAIN_LL: &str = "define i32 @main(i32 %argc) {
+static MAIN_LL: &str = "define i32 @main(i32 %argc, i32 %argv) {
         %varT = add i32 1, 0
         %noArgs = icmp eq i32 %argc, 1
         br i1 %noArgs, label %lbl_t, label %lbl_f
@@ -37,7 +37,10 @@ fn process_ll_extracts_functions() {
     assert!(functions.contains_key("@function2"));
 
     let main_lines = &functions["@main"];
-    assert_eq!(main_lines.first().unwrap(), "define i32 @main(i32 %argc) {");
+    assert_eq!(
+        main_lines.first().unwrap(),
+        "define i32 @main(i32 %argc, i32 %argv) {"
+    );
     assert_eq!(main_lines.get(1).unwrap(), "        %varT = add i32 1, 0");
     assert_eq!(main_lines.get(12).unwrap(), "        ret i32 %var");
 
@@ -85,12 +88,21 @@ fn expression_classifies_llvm_text() {
     let cases = [
         (
             "define i32 @main() {",
-            SpecificType::Define,
+            SpecificType::Define {
+                name: "@main".to_string(),
+                dtype: "i32".to_string(),
+                args: "".to_string(),
+            },
             BroadType::Start,
         ),
-        ("entry:", SpecificType::Label, BroadType::Start),
+        (
+            "entry:",
+            SpecificType::Label {
+                name: "entry".to_string(),
+            },
+            BroadType::Start,
+        ),
         ("call i32 @main()", SpecificType::Call, BroadType::Call),
-        ("br label %end", SpecificType::Br, BroadType::End),
         ("ret i32 0", SpecificType::Ret, BroadType::End),
         ("}", SpecificType::Endbracket, BroadType::End),
         (
@@ -111,6 +123,10 @@ fn expression_classifies_llvm_text() {
         assert_eq!(expression.specific_type, specific_type, "{text}");
         assert_eq!(expression.broad_type, broad_type, "{text}");
     }
+
+    let branch = Expression::new_with_text("br label %end".to_string());
+    assert!(matches!(branch.specific_type, SpecificType::Br { .. }));
+    assert_eq!(branch.broad_type, BroadType::End);
 }
 
 #[test]
