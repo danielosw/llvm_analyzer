@@ -136,7 +136,7 @@ impl Expression {
             };
         } else if REGEX_RETURN.is_match(&self.text) {
             self.specific_type = SpecificType::Ret;
-        } else if REGEX_BR.is_match(&self.text) {
+        } else if REGEX_NEW_BR.is_match(&self.text) {
             let captures = REGEX_NEW_BR.captures(&self.text).unwrap();
             if let Some(sendto1) = captures.name("sendto1") {
                 // Handle the case where there's a simple branch to a label
