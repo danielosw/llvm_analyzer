@@ -72,67 +72,19 @@ impl Default for Expression {
 
 impl fmt::Display for Expression {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.broad_type != BroadType::Numberic && self.broad_type != BroadType::End {
-            return formatter.write_str(&self.text);
-        }
-        if self.broad_type == BroadType::Numberic {
-            let (operator, result_reg, operand_type, operand_a, operand_b) = self
-                .specific_type
-                .arithmetic_parts()
-                .expect("numeric expression must have an arithmetic specific type");
-
-            write!(
-                formatter,
-                "%{} = {} {} {}, {}",
-                result_reg, operator, operand_type, operand_a, operand_b
-            )
-        } else if self.broad_type == BroadType::End {
-            if (!matches!(self.specific_type, SpecificType::Br { .. })) {
-                return formatter.write_str(&self.text);
+        match self.specific_type {
+            SpecificType::Br { .. }
+            | SpecificType::Endbracket
+            | SpecificType::Define { .. }
+            | SpecificType::Label { .. }
+            | SpecificType::Add { .. }
+            | SpecificType::Sub { .. }
+            | SpecificType::Div { .. }
+            | SpecificType::Mul { .. } => {
+                // Use the specific tpye fmt implementation
+                write!(formatter, "{}", self.specific_type)
             }
-            match self.specific_type {
-                SpecificType::Br {
-                    ref sendto1,
-                    ref matchtype,
-                    ref checkvar,
-                    ref sendto2,
-                } => {
-                    if let Some(matchtype) = matchtype {
-                        if let Some(checkvar) = checkvar {
-                            if let Some(sendto2) = sendto2 {
-                                write!(
-                                    formatter,
-                                    "br {} {}, label {}, label {}",
-                                    matchtype, checkvar, sendto1, sendto2
-                                )
-                            } else {
-                                write!(
-                                    formatter,
-                                    "br {} {}, label {}",
-                                    matchtype, checkvar, sendto1
-                                )
-                            }
-                        } else {
-                            write!(formatter, "br label {}", sendto1)
-                        }
-                    } else {
-                        write!(formatter, "br label {}", sendto1)
-                    }
-                }
-                _ => unreachable!("Unexpected branch type: {}", self.text),
-            }
-        } else if self.broad_type == BroadType::Start {
-            match &self.specific_type {
-                SpecificType::Label { name } => {
-                    write!(formatter, "{}:", name)
-                }
-                SpecificType::Define { dtype, name, args } => {
-                    write!(formatter, "define {} {}({}) {{", dtype, name, args)
-                }
-                _ => formatter.write_str(&self.text),
-            }
-        } else {
-            unreachable!("Unexpected broad type: {}", self.text)
+            _ => write!(formatter, "{}", self.text),
         }
     }
 }
