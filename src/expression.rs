@@ -88,7 +88,6 @@ impl Expression {
             text,
             broad_type,
             specific_type,
-            ..Default::default()
         }
     }
     pub fn new_with_text(text: String) -> Self {
@@ -96,7 +95,6 @@ impl Expression {
             text,
             broad_type: BroadType::Unkown,
             specific_type: SpecificType::Unkown,
-            ..Default::default()
         };
         expression.guess_specific_type();
         expression.guess_general_type();
@@ -107,7 +105,6 @@ impl Expression {
             text,
             broad_type: BroadType::Unkown,
             specific_type,
-            ..Default::default()
         };
         expression.guess_general_type();
         expression

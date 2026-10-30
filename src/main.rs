@@ -1,5 +1,4 @@
 use clap::Parser;
-use core::num;
 use eecs_677_project_3::block::{Block, EscapeIntOrReg};
 use eecs_677_project_3::processing::{process_function, process_ll};
 use std::collections::HashMap;

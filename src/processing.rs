@@ -55,7 +55,6 @@ pub fn process_function(
     let mut blocknames: Vec<String> = Vec::new();
     let mut blocks: HashMap<String, Block> = HashMap::new();
     let mut functionname = "".to_owned();
-    let mut currentcounter = 1;
     let mut blocknum = 0;
     let mut block: Block = Block::new();
     for i in lines {
@@ -106,7 +105,6 @@ pub fn process_function(
                 block.lines.push(expression);
                 blocks.insert(block.clone().name, block.clone());
                 inblock = false;
-                currentcounter = 1;
                 continue;
             }
             if matches!(expression.specific_type, SpecificType::Br { .. }) {
@@ -124,7 +122,6 @@ pub fn process_function(
                 }
                 blocks.insert(block.name.clone(), block.clone());
                 inblock = false;
-                currentcounter = 1;
                 continue;
             }
             if matches!(expression.specific_type, SpecificType::Call { .. }) {
