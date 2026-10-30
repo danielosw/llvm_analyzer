@@ -110,8 +110,7 @@ impl Expression {
         expression
     }
     pub fn guess_specific_type(&mut self) {
-        if REGEX_CALL.is_match(&self.text) {
-            let captures = REGEX_CALL.captures(&self.text).unwrap();
+        if let Some(captures) = REGEX_CALL.captures(&self.text) {
             self.specific_type = SpecificType::Call {
                 func_name: captures.name("func").unwrap().as_str().to_string(),
                 args: captures.name("args").unwrap().as_str().to_string(),
@@ -124,22 +123,27 @@ impl Expression {
                     .to_string(),
                 sendto: captures.name("sendto").map(|v| v.as_str().to_string()),
             };
-        } else if REGEX_DEFINE.is_match(&self.text) {
-            let captures = REGEX_DEFINE.captures(&self.text).unwrap();
+            return;
+        }
+        if let Some(captures) = REGEX_DEFINE.captures(&self.text) {
             self.specific_type = SpecificType::Define {
                 dtype: captures.name("type").unwrap().as_str().to_string(),
                 name: captures.name("name").unwrap().as_str().to_string(),
                 args: captures.name("args").unwrap().as_str().to_string(),
             };
-        } else if REGEX_BLOCK_LABEL.is_match(&self.text) {
-            let captures = REGEX_BLOCK_LABEL.captures(&self.text).unwrap();
+            return;
+        }
+        if let Some(captures) = REGEX_BLOCK_LABEL.captures(&self.text) {
             self.specific_type = SpecificType::Label {
                 name: captures.name("name").unwrap().as_str().to_string(),
             };
-        } else if REGEX_RETURN.is_match(&self.text) {
+            return;
+        }
+        if REGEX_RETURN.is_match(&self.text) {
             self.specific_type = SpecificType::Ret;
-        } else if REGEX_NEW_BR.is_match(&self.text) {
-            let captures = REGEX_NEW_BR.captures(&self.text).unwrap();
+            return;
+        }
+        if let Some(captures) = REGEX_NEW_BR.captures(&self.text) {
             if let Some(sendto1) = captures.name("sendto1") {
                 // Handle the case where there's a simple branch to a label
                 self.specific_type = SpecificType::Br {
@@ -157,59 +161,64 @@ impl Expression {
                     sendto2: captures.name("sendto3").map(|v| v.as_str().to_string()),
                 };
             }
-        } else if REGEX_END_BRACKET.is_match(&self.text) {
+            return;
+        }
+        if REGEX_END_BRACKET.is_match(&self.text) {
             self.specific_type = SpecificType::Endbracket;
-        } else if REGEX_NUMERIC.is_match(&self.text) {
-            let caputures_lol = REGEX_NUMERIC.captures_iter(&self.text).next().unwrap();
-            let number_type = &caputures_lol["OperatorType"];
+            return;
+        }
+        if let Some(captures) = REGEX_NUMERIC.captures(&self.text) {
+            let number_type = &captures["OperatorType"];
             self.specific_type = match number_type {
                 "add" => SpecificType::Add {
                     // regex is     r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
-                    result_reg: caputures_lol["RegisterName"].to_string(),
-                    operand_a: caputures_lol["NumberA"].to_string(),
-                    operand_b: caputures_lol["NumberB"].to_string(),
-                    operand_type: caputures_lol["NumberType"].to_string(),
+                    result_reg: captures["RegisterName"].to_string(),
+                    operand_a: captures["NumberA"].to_string(),
+                    operand_b: captures["NumberB"].to_string(),
+                    operand_type: captures["NumberType"].to_string(),
                 },
                 "sub" => SpecificType::Sub {
-                    result_reg: caputures_lol["RegisterName"].to_string(),
-                    operand_a: caputures_lol["NumberA"].to_string(),
-                    operand_b: caputures_lol["NumberB"].to_string(),
-                    operand_type: caputures_lol["NumberType"].to_string(),
+                    result_reg: captures["RegisterName"].to_string(),
+                    operand_a: captures["NumberA"].to_string(),
+                    operand_b: captures["NumberB"].to_string(),
+                    operand_type: captures["NumberType"].to_string(),
                 },
                 "div" => SpecificType::Div {
-                    result_reg: caputures_lol["RegisterName"].to_string(),
-                    operand_a: caputures_lol["NumberA"].to_string(),
-                    operand_b: caputures_lol["NumberB"].to_string(),
-                    operand_type: caputures_lol["NumberType"].to_string(),
+                    result_reg: captures["RegisterName"].to_string(),
+                    operand_a: captures["NumberA"].to_string(),
+                    operand_b: captures["NumberB"].to_string(),
+                    operand_type: captures["NumberType"].to_string(),
                 },
                 "mul" => SpecificType::Mul {
-                    result_reg: caputures_lol["RegisterName"].to_string(),
-                    operand_a: caputures_lol["NumberA"].to_string(),
-                    operand_b: caputures_lol["NumberB"].to_string(),
-                    operand_type: caputures_lol["NumberType"].to_string(),
+                    result_reg: captures["RegisterName"].to_string(),
+                    operand_a: captures["NumberA"].to_string(),
+                    operand_b: captures["NumberB"].to_string(),
+                    operand_type: captures["NumberType"].to_string(),
                 },
                 // icmp matches the regex for numeric, but we don't want to treat it as a numeric type
                 "icmp" => SpecificType::Unkown,
                 _ => {
                     println!("Unkown numeric type! {}", number_type);
                     // print out the captures for debugging
-                    for capture in caputures_lol.iter().flatten() {
+                    for capture in captures.iter().flatten() {
                         println!("Capture: {}", capture.as_str());
                     }
                     SpecificType::Unkown
                 }
             };
-        } else if REGEX_STORE.is_match(&self.text) {
-            let captures = REGEX_STORE.captures_iter(&self.text).next().unwrap();
+            return;
+        }
+        if let Some(captures) = REGEX_STORE.captures_iter(&self.text).next() {
             //     r"store (?P<storetype>.*?) (?P<storefrom>.*?), ptr %(?P<storeto>.*?)$"
             self.specific_type = SpecificType::Store {
                 store_type: captures["storetype"].to_string(),
                 store_from: captures["storefrom"].to_string(),
                 store_to: captures["storeto"].to_string(),
-            }
-        } else if REGEX_LOAD.is_match(&self.text) {
+            };
+            return;
+        }
+        if let Some(captures) = REGEX_LOAD.captures_iter(&self.text).next() {
             //    r"%(?P<loadto>.*?)\s{0,}=\s{0,}load\s{0,}(?P<type>.*?),\s{0,}ptr %(?P<loadfrom>.*?)$"
-            let captures = REGEX_LOAD.captures_iter(&self.text).next().unwrap();
             self.specific_type = SpecificType::Load {
                 load_to: captures["loadto"].to_string(),
                 load_from: captures["loadfrom"].to_string(),
