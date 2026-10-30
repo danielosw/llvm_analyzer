@@ -18,7 +18,6 @@ define_regex!(
     REGEX_NUMERIC,
     r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
 );
-define_regex!(REGEX_BR, r"\bbr.*?\b");
 define_regex!(
     REGEX_NEW_BR,
     r"^\s*br (?:label (?P<sendto1>[^\s,]+)|(?P<matchtype>[^\s]+) (?P<checkvar>[^,\s]+), label (?P<sendto2>[^,\s]+), label (?P<sendto3>[^\s,]+))\s*$"
@@ -29,26 +28,17 @@ define_regex!(
 );
 define_regex!(REGEX_BLOCK_LABEL, r"^\s*(?P<name>.*?):");
 define_regex!(REGEX_RETURN, r"\bret\b");
-define_regex!(REGEX_CALL, r"\bcall\b");
+define_regex!(
+    REGEX_CALL,
+    r"(%(?P<sendto>.*?){0,1} {0,}=){0,1} {0,}call (?P<type>.*?)(?P<func>@.*?)\((?P<args>.*?)\)"
+);
 define_regex!(
     REGEX_STORE,
-    r"store (?P<storetype>.*?) %(?P<storefrom>.*?), ptr %(?P<storeto>.*?)$"
-);
-define_regex!(
-    REGEX_STORE_CONST,
-    r"store (?P<storetype>.*?) (?P<storefrom>.*?), ptr %(?P<storeto>.*?)$"
-);
-define_regex!(
-    REGEX_SOURCE,
-    r"%(?P<outvar>.*?) {0,}= {0,}call (?P<calltype>.*?) @(:?P<funcname>.*?)\b"
-);
-define_regex!(
-    REGEX_SINK,
-    r"\bcall (?P<calltype>.*?) @(:?P<funcname>.*?)\(.*? (?P<varname>.*?)\)"
+    r"store (?P<storetype>.*?) (?P<storefrom>.*?), {0,}ptr %(?P<storeto>.*?)$"
 );
 define_regex!(
     REGEX_LOAD,
-    r"%(?P<loadto>.*?)\s{0,}=\s{0,}load\s{0,}(?P<type>.*?),\s{0,}ptr %(?P<loadfrom>.*?)$"
+    r"%(?P<loadto>.*?) {0,}= {0,}load (?P<type>.*?), {0,}ptr %(?P<loadfrom>.*?)$"
 );
 
 use crate::block::BroadType;
@@ -80,7 +70,10 @@ impl fmt::Display for Expression {
             | SpecificType::Add { .. }
             | SpecificType::Sub { .. }
             | SpecificType::Div { .. }
-            | SpecificType::Mul { .. } => {
+            | SpecificType::Mul { .. }
+            | SpecificType::Call { .. }
+            | SpecificType::Load { .. }
+            | SpecificType::Store { .. } => {
                 // Use the specific tpye fmt implementation
                 write!(formatter, "{}", self.specific_type)
             }
@@ -121,7 +114,19 @@ impl Expression {
     }
     pub fn guess_specific_type(&mut self) {
         if REGEX_CALL.is_match(&self.text) {
-            self.specific_type = SpecificType::Call;
+            let captures = REGEX_CALL.captures(&self.text).unwrap();
+            self.specific_type = SpecificType::Call {
+                func_name: captures.name("func").unwrap().as_str().to_string(),
+                args: captures.name("args").unwrap().as_str().to_string(),
+                calltype: captures
+                    .name("type")
+                    .unwrap()
+                    .as_str()
+                    .to_string()
+                    .trim()
+                    .to_string(),
+                sendto: captures.name("sendto").map(|v| v.as_str().to_string()),
+            };
         } else if REGEX_DEFINE.is_match(&self.text) {
             let captures = REGEX_DEFINE.captures(&self.text).unwrap();
             self.specific_type = SpecificType::Define {
@@ -186,11 +191,33 @@ impl Expression {
                     operand_b: caputures_lol["NumberB"].to_string(),
                     operand_type: caputures_lol["NumberType"].to_string(),
                 },
+                // icmp matches the regex for numeric, but we don't want to treat it as a numeric type
+                "icmp" => SpecificType::Unkown,
                 _ => {
                     println!("Unkown numeric type! {}", number_type);
+                    // print out the captures for debugging
+                    for capture in caputures_lol.iter().flatten() {
+                        println!("Capture: {}", capture.as_str());
+                    }
                     SpecificType::Unkown
                 }
             };
+        } else if REGEX_STORE.is_match(&self.text) {
+            let captures = REGEX_STORE.captures_iter(&self.text).next().unwrap();
+            //     r"store (?P<storetype>.*?) (?P<storefrom>.*?), ptr %(?P<storeto>.*?)$"
+            self.specific_type = SpecificType::Store {
+                store_type: captures["storetype"].to_string(),
+                store_from: captures["storefrom"].to_string(),
+                store_to: captures["storeto"].to_string(),
+            }
+        } else if REGEX_LOAD.is_match(&self.text) {
+            //    r"%(?P<loadto>.*?)\s{0,}=\s{0,}load\s{0,}(?P<type>.*?),\s{0,}ptr %(?P<loadfrom>.*?)$"
+            let captures = REGEX_LOAD.captures_iter(&self.text).next().unwrap();
+            self.specific_type = SpecificType::Load {
+                load_to: captures["loadto"].to_string(),
+                load_from: captures["loadfrom"].to_string(),
+                load_type: captures["type"].to_string(),
+            }
         } else {
             self.specific_type = SpecificType::Unkown;
         }
@@ -198,7 +225,7 @@ impl Expression {
     // only call after the specific type is populated
     pub fn guess_general_type(&mut self) {
         match self.specific_type {
-            SpecificType::Call => self.broad_type = BroadType::Call,
+            SpecificType::Call { .. } => self.broad_type = BroadType::Call,
             SpecificType::Define { .. } | SpecificType::Label { .. } => {
                 self.broad_type = BroadType::Start
             }

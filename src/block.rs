@@ -88,7 +88,14 @@ pub enum SpecificType {
         operand_type: String,
     },
     Phi,
-    Call,
+    // the mess here is that their is basiclly two diffrent calls, one is a regular call one one is a assignment call, the assignemnt call is the one that has a register on the left side of the equal sign, the regular call is just a call with no equal sign
+    // and we want to handle both in the same type
+    Call {
+        func_name: String,
+        args: String,
+        calltype: String,
+        sendto: Option<String>,
+    },
     Define {
         dtype: String,
         name: String,
@@ -172,6 +179,34 @@ impl fmt::Display for SpecificType {
             }
             Self::Label { name } => write!(f, "{}:", name),
             Self::Endbracket => write!(f, "}}"),
+            Self::Call {
+                func_name,
+                args,
+                calltype,
+                sendto,
+            } => {
+                if let Some(sendto) = sendto {
+                    // example:   %secret = call i32 () @SOURCE()
+                    write!(f, "%{} = call {} {}({})", sendto, calltype, func_name, args)
+                } else {
+                    // example:   call i32 @SOURCE()
+                    write!(f, "call {} {}({})", calltype, func_name, args)
+                }
+            }
+            Self::Store {
+                store_type,
+                store_from,
+                store_to,
+            } => {
+                write!(f, "store {} {}, ptr %{}", store_type, store_from, store_to)
+            }
+            Self::Load {
+                load_to,
+                load_from,
+                load_type,
+            } => {
+                write!(f, "%{} = load {}, ptr %{}", load_to, load_type, load_from)
+            }
             _ => unimplemented!(),
         }
     }

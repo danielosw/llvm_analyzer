@@ -127,33 +127,14 @@ pub fn process_function(
                 currentcounter = 1;
                 continue;
             }
-            if expression.specific_type == SpecificType::Call {
-                let callname = block.name.clone() + &currentcounter.to_string();
-                let returnname = block.name.clone() + &(currentcounter + 1).to_string();
-                block.connections.push(callname.clone());
-                blocks.insert(block.name.clone(), block.clone());
-
-                let call_block = Block {
-                    name: callname.clone(),
-                    lines: vec![expression],
-                    connections: vec![returnname.clone()],
-                    number: blocknum,
+            if matches!(expression.specific_type, SpecificType::Call { .. }) {
+                block.lines.push(expression.clone());
+                let func = match expression.specific_type {
+                    SpecificType::Call { func_name, .. } => func_name.to_string(),
+                    _ => unreachable!(),
                 };
-                blocknum += 1;
+                block.connections.push(func);
 
-                blocks.insert(callname, call_block);
-
-                let return_block = Block {
-                    name: returnname.clone(),
-                    number: blocknum,
-
-                    ..Default::default()
-                };
-                blocknum += 1;
-                blocks.insert(returnname.clone(), return_block);
-                block = blocks.get(&returnname).cloned().unwrap();
-
-                currentcounter += 2;
                 continue;
             }
             block.lines.push(expression);

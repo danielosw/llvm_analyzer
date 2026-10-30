@@ -103,7 +103,16 @@ fn expression_classifies_llvm_text() {
             },
             BroadType::Start,
         ),
-        ("call i32 @main()", SpecificType::Call, BroadType::Call),
+        (
+            "call i32 @main()",
+            SpecificType::Call {
+                func_name: "@main".to_string(),
+                args: "".to_string(),
+                calltype: "i32".to_string(),
+                sendto: None,
+            },
+            BroadType::Call,
+        ),
         ("ret i32 0", SpecificType::Ret, BroadType::End),
         ("}", SpecificType::Endbracket, BroadType::End),
         (

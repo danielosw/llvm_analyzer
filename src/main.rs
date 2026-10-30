@@ -1,4 +1,5 @@
 use clap::Parser;
+use core::num;
 use eecs_677_project_3::block::{Block, EscapeIntOrReg};
 use eecs_677_project_3::processing::{process_function, process_ll};
 use std::collections::HashMap;
@@ -18,6 +19,7 @@ fn output_to_file(
     let mut outputfile = File::create("./".to_owned() + function_name + ".dot")?;
     let mut output = "digraph {\n".to_string();
     let mut tempvec: Vec<&Block> = blocks.values().collect();
+    let mut number = 0;
     tempvec.sort();
     for block in &tempvec {
         let label = block
@@ -35,19 +37,31 @@ fn output_to_file(
             + " [shape=record,label=\""
             + &label
             + "\"]\n");
+        number += 1;
     }
     for block in tempvec {
         for (j, i) in block.connections.clone().into_iter().enumerate() {
             println!("{} -> {}", block.number, i);
-            let target = blocks.get(&i.escape_int_or_reg()).unwrap();
+            let target = blocks.get(&i.escape_int_or_reg());
+            // if the target does not exist and it starts with @ assume it is a function call and add a node for it
+            if target.is_none() && i.starts_with("@") {
+                output += &("\t\tNode".to_owned()
+                    + &number.to_string()
+                    + " [shape=record,label=\""
+                    + &i.escape_int_or_reg()
+                    + "\"]\n");
+            }
 
             output += &("\t\tNode".to_owned()
                 + &block.number.to_string()
                 + " -> Node"
-                + &target.number.to_string()
+                + &target
+                    .map(|b| b.number.to_string())
+                    .unwrap_or_else(|| number.to_string())
                 + " [label="
                 + &j.to_string()
                 + "];\n");
+            number += 1;
         }
     }
     output += "}";
