@@ -1,5 +1,5 @@
 use crate::expression;
-use std::{cmp::Ordering, fmt};
+use std::{cmp::Ordering, collections::HashMap, fmt};
 // superclass of string
 pub trait IntOrReg {
     fn is_int(&self) -> bool;
@@ -222,6 +222,9 @@ pub struct Block {
     pub connections: Vec<String>,
     // The number, only used for output
     pub number: i32,
+    pub entry: bool,
+    pub setvars: Vec<HashMap<String, String>>,
+    pub refrenced: Vec<String>,
 }
 
 // I am only implementing this so I can use .sort
@@ -244,6 +247,9 @@ impl Default for Block {
             lines: Vec::new(),
             connections: Vec::new(),
             number: 0,
+            entry: false,
+            setvars: Vec::new(),
+            refrenced: Vec::new(),
         }
     }
 }

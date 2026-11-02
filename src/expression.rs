@@ -34,11 +34,11 @@ define_regex!(
 );
 define_regex!(
     REGEX_STORE,
-    r"store (?P<storetype>.*?) (?P<storefrom>.*?), {0,}ptr %(?P<storeto>.*?)$"
+    r"store (?P<storetype>.*?) (?P<storefrom>.*?), {0,}ptr (?P<storeto>%.*?)$"
 );
 define_regex!(
     REGEX_LOAD,
-    r"%(?P<loadto>.*?) {0,}= {0,}load (?P<type>.*?), {0,}ptr %(?P<loadfrom>.*?)$"
+    r"(?P<loadto>%.*?) {0,}= {0,}load (?P<type>.*?), {0,}ptr (?P<loadfrom>%.*?)$"
 );
 
 use crate::block::BroadType;

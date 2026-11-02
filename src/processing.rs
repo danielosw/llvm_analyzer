@@ -36,7 +36,7 @@ pub fn process_ll(ll_text: String) -> Result<HashMap<String, Vec<String>>, std::
                 functions.insert(name.clone().to_string(), function.clone());
                 name = "".to_string();
                 infunction = false;
-                function = Vec::new();
+                function.clear();
             } else {
                 function.push(i);
             }
@@ -52,6 +52,7 @@ pub fn process_function(
     String,
 ) {
     let mut inblock = false;
+    let mut entry_found = false;
     let mut blocknames: Vec<String> = Vec::new();
     let mut blocks: HashMap<String, Block> = HashMap::new();
     let mut functionname = "".to_owned();
@@ -72,11 +73,16 @@ pub fn process_function(
                 blocknames.push(functionname.clone());
                 inblock = true;
                 // create a new block
+
                 block = Block {
                     name: functionname.clone(),
                     number: blocknum,
+                    entry: !entry_found,
                     ..Default::default()
                 };
+                if !entry_found {
+                    entry_found = false
+                }
                 block.lines.push(expression.clone());
                 blocknum += 1;
             }
@@ -90,9 +96,13 @@ pub fn process_function(
                 block = Block {
                     name: label.to_string(),
                     number: blocknum,
+                    entry: !entry_found,
 
                     ..Default::default()
                 };
+                if !entry_found {
+                    entry_found = false
+                }
                 block.lines.push(expression);
                 blocknum += 1;
                 inblock = true;
@@ -100,16 +110,14 @@ pub fn process_function(
             }
         } else {
             // we are in a block
+            let expression = Expression::new_with_text(i.clone());
+            block.lines.push(expression.clone());
             if expression.specific_type == SpecificType::Ret {
-                let expression = Expression::new_with_text(i.clone());
-                block.lines.push(expression);
                 blocks.insert(block.clone().name, block.clone());
                 inblock = false;
                 continue;
             }
             if matches!(expression.specific_type, SpecificType::Br { .. }) {
-                let expression = Expression::new_with_text(i.clone());
-                block.lines.push(expression.clone());
                 if let SpecificType::Br {
                     sendto1, sendto2, ..
                 } = expression.specific_type
@@ -124,17 +132,54 @@ pub fn process_function(
                 inblock = false;
                 continue;
             }
-            if matches!(expression.specific_type, SpecificType::Call { .. }) {
-                block.lines.push(expression.clone());
-                let func = match expression.specific_type {
-                    SpecificType::Call { func_name, .. } => func_name.to_string(),
-                    _ => unreachable!(),
-                };
-                block.connections.push(func);
+            if let SpecificType::Call {
+                func_name,
+                sendto,
+                args,
+                ..
+            } = expression.specific_type
+            {
+                block.connections.push(func_name.clone());
+                if let Some(realto) = sendto {
+                    block
+                        .setvars
+                        .push(HashMap::from([(func_name, "%".to_owned() + &realto)]));
+                }
+                // !TODO: don't do this really janky thing to make taint tracking work.
+                else {
+                    let arglist: Vec<String> = args.split(",").map(|f| f.to_string()).collect();
+                    if arglist.len() == 1 && arglist[0].starts_with("i32 ") {
+                        block
+                            .setvars
+                            .push(HashMap::from([(arglist[0][4..].to_owned(), func_name)]));
+                    }
+                }
 
                 continue;
             }
-            block.lines.push(expression);
+            if let SpecificType::Store {
+                ref store_from,
+                ref store_to,
+                ..
+            } = expression.specific_type
+            {
+                block.setvars.push(HashMap::from([(
+                    store_from.to_owned(),
+                    store_to.to_owned(),
+                )]));
+            }
+            if let SpecificType::Load {
+                ref load_to,
+                ref load_from,
+                ..
+            } = expression.specific_type
+            {
+                block
+                    .setvars
+                    .push(HashMap::from([(load_from.to_owned(), load_to.to_owned())]));
+            }
+
+            //
         }
     }
     if functionname.strip_prefix("@").is_some() {

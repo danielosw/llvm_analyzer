@@ -16,7 +16,7 @@
             },
             "args": [
                 "--filename",
-                "test1.ll"
+                "taint_tests/test2.ll"
             ]
         },
         {

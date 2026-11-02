@@ -1,6 +1,7 @@
 use clap::Parser;
 use eecs_677_project_3::block::{Block, EscapeIntOrReg};
 use eecs_677_project_3::processing::{process_function, process_ll};
+use eecs_677_project_3::worklist::worklist;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, prelude::*};
@@ -79,6 +80,9 @@ fn main() -> std::io::Result<()> {
     let functions = process_ll(ll_text)?;
     for function_list in functions.values() {
         let (blocks, function_name) = process_function(function_list.to_vec());
+        let mut tempvec: Vec<Block> = blocks.values().map(|f| f.to_owned()).collect();
+        tempvec.sort();
+        worklist(tempvec);
         output_to_file(blocks, &function_name)?;
     }
     Ok(())

@@ -243,6 +243,9 @@ fn block_stores_and_returns_expression_text() {
         ],
         connections: vec!["exit".to_string()],
         number: 3,
+        entry: true,
+        refrenced: Vec::new(),
+        setvars: Vec::new(),
     };
 
     assert_eq!(block.get_lines_vec(), vec!["entry:", "ret i32 0"]);
@@ -270,6 +273,9 @@ fn blocks_are_ordered_by_number() {
             lines: vec![Expression::new_with_text(format!("line{}", i))],
             connections: vec![format!("block{}", i + 1)],
             number: i - 1,
+            entry: false,
+            setvars: Vec::new(),
+            refrenced: Vec::new(),
         };
         blocks.push(block);
     }
