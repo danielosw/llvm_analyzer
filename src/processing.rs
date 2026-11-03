@@ -132,52 +132,6 @@ pub fn process_function(
                 inblock = false;
                 continue;
             }
-            if let SpecificType::Call {
-                func_name,
-                sendto,
-                args,
-                ..
-            } = expression.specific_type
-            {
-                block.connections.push(func_name.clone());
-                if let Some(realto) = sendto {
-                    block
-                        .setvars
-                        .push(HashMap::from([(func_name, "%".to_owned() + &realto)]));
-                }
-                // !TODO: don't do this really janky thing to make taint tracking work.
-                else {
-                    let arglist: Vec<String> = args.split(",").map(|f| f.to_string()).collect();
-                    if arglist.len() == 1 && arglist[0].starts_with("i32 ") {
-                        block
-                            .setvars
-                            .push(HashMap::from([(arglist[0][4..].to_owned(), func_name)]));
-                    }
-                }
-
-                continue;
-            }
-            if let SpecificType::Store {
-                ref store_from,
-                ref store_to,
-                ..
-            } = expression.specific_type
-            {
-                block.setvars.push(HashMap::from([(
-                    store_from.to_owned(),
-                    store_to.to_owned(),
-                )]));
-            }
-            if let SpecificType::Load {
-                ref load_to,
-                ref load_from,
-                ..
-            } = expression.specific_type
-            {
-                block
-                    .setvars
-                    .push(HashMap::from([(load_from.to_owned(), load_to.to_owned())]));
-            }
 
             //
         }

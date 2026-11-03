@@ -83,6 +83,45 @@ impl fmt::Display for Expression {
 }
 
 impl Expression {
+    // Retuns Some(callname, args) else None
+    pub fn getcall(self) -> Option<(String, String)> {
+        match self.specific_type {
+            SpecificType::Call {
+                func_name,
+                args,
+                calltype,
+                sendto,
+            } => Some((func_name, args)),
+            _ => None,
+        }
+    }
+    // Returns Some((from,tp)) if an assignment, else None
+    pub fn assignment(self) -> Option<(String, String)> {
+        match self.specific_type {
+            SpecificType::Call {
+                func_name,
+                args: _,
+                calltype: _,
+                sendto,
+            } => {
+                if let Some(realto) = sendto {
+                    return Some((func_name, realto));
+                }
+                None
+            }
+            SpecificType::Load {
+                load_to,
+                load_from,
+                load_type: _,
+            } => Some((load_from, load_to)),
+            SpecificType::Store {
+                store_type: _,
+                store_from,
+                store_to,
+            } => Some((store_from, store_to)),
+            _ => None,
+        }
+    }
     pub fn new(text: String, broad_type: BroadType, specific_type: SpecificType) -> Self {
         Expression {
             text,

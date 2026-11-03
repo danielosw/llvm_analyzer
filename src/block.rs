@@ -265,4 +265,12 @@ impl Block {
             .map(|expression| expression.text.clone())
             .collect()
     }
+    pub fn update_setvars(&mut self) {
+        let blocksetvars1: Vec<HashMap<String, String>> = self
+            .lines
+            .iter()
+            .filter_map(|f| f.clone().assignment().map(|assign| HashMap::from([assign])))
+            .collect();
+        self.setvars = blocksetvars1;
+    }
 }
