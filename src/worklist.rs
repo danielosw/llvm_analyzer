@@ -1,7 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use clap::builder::Str;
-
 use crate::block::Block;
 fn resolve(mut name: String, values: HashMap<String, String>) -> String {
     let mut seen: HashSet<String> = HashSet::new();
@@ -33,14 +31,38 @@ fn leakcheck(mut name: String, values: HashMap<String, String>, badname: String)
 fn merge_predecessor_outputs(
     block: &Block,
     blocks: &[Block],
-    out_state: &HashMap<String, HashMap<String, String>>,
-) -> HashMap<String, String> {
-    let mut result = HashMap::new();
+    out_state: &HashMap<String, BlockState>,
+) -> HashMap<String, BlockState> {
+    let mut result: HashMap<String, BlockState> = HashMap::new();
 
     for predecessor in blocks {
         if predecessor.connections.contains(&block.name) {
             if let Some(output) = out_state.get(&predecessor.name) {
-                result.extend(output.clone());
+                // if the predecessor is in their
+                if let Some(resulting) = result.get_mut(&predecessor.name) {
+                    for i in output.Variables.iter() {
+                        if resulting.Variables.contains_key(i.0) {
+                            if resulting.Variables.get(i.0).unwrap() == i.1 {
+                                continue;
+                            } else {
+                                resulting.Variables.insert(i.0.clone(), i.1.clone());
+                            }
+                        } else {
+                            resulting.Variables.insert(i.0.clone(), i.1.clone());
+                        }
+                    }
+                    for i in output.RanFunctions.iter() {
+                        if resulting.RanFunctions.contains_key(i.0) {
+                            if resulting.RanFunctions.get(i.0).unwrap() == i.1 {
+                                continue;
+                            } else {
+                                resulting.RanFunctions.insert(i.0.clone(), i.1.clone());
+                            }
+                        } else {
+                            resulting.RanFunctions.insert(i.0.clone(), i.1.clone());
+                        }
+                    }
+                }
             }
         }
     }
@@ -50,14 +72,23 @@ fn merge_predecessor_outputs(
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct BlockState {
     pub Variables: HashMap<String, String>,
-    pub RanFunctions: Vec<(String, String)>,
+    pub RanFunctions: Vec<HashMap<String, String>>,
 }
-fn transfer_block(block: Block, new_in: HashMap<String, String>) {
-    let state: HashMap<String, String> = new_in.clone();
-    let mut currentstate: BlockState = BlockState {
-        Variables: HashMap::new(),
-        RanFunctions: Vec::new(),
-    };
+impl Default for BlockState {
+    fn default() -> Self {
+        Self {
+            Variables: HashMap::new(),
+            RanFunctions: HashMap::new(),
+        }
+    }
+}
+impl BlockState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+fn transfer_block(block: Block, new_in: BlockState) {
+    let mut currentstate: BlockState = new_in.clone();
     for line in block.lines {
         if let Some(calls) = line.clone().getcall() {
             currentstate.RanFunctions.push(calls);
@@ -68,8 +99,8 @@ fn transfer_block(block: Block, new_in: HashMap<String, String>) {
     }
 }
 fn analyze(blocks: Vec<Block>) {
-    let mut in_state: HashMap<String, HashMap<String, String>> = HashMap::new();
-    let mut out_state: HashMap<String, HashMap<String, String>> = HashMap::new();
+    let mut in_state: HashMap<String, BlockState> = HashMap::new();
+    let mut out_state: HashMap<String, BlockState> = HashMap::new();
     let mut worklist: VecDeque<Block> = VecDeque::new();
     let name_to_block: HashMap<String, Block> = worklist
         .iter()
@@ -79,13 +110,13 @@ fn analyze(blocks: Vec<Block>) {
         f.update_setvars();
     });
     for block in blocks {
-        in_state.insert(block.name.clone(), HashMap::new());
-        out_state.insert(block.name.clone(), HashMap::new());
+        in_state.insert(block.name.clone(), BlockState::new());
+        out_state.insert(block.name.clone(), BlockState::new());
         worklist.push_back(block);
     }
 
     while let Some(block) = worklist.pop_front() {
-        let new_in: HashMap<String, String> =
+        let new_in: HashMap<String, BlockState> =
             merge_predecessor_outputs(&block, &blocks, &out_state);
 
         let new_out = transfer_block(block, new_in.clone());
