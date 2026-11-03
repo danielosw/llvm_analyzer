@@ -51,16 +51,8 @@ fn merge_predecessor_outputs(
                             resulting.Variables.insert(i.0.clone(), i.1.clone());
                         }
                     }
-                    for i in output.RanFunctions.iter() {
-                        if resulting.RanFunctions.contains_key(i.0) {
-                            if resulting.RanFunctions.get(i.0).unwrap() == i.1 {
-                                continue;
-                            } else {
-                                resulting.RanFunctions.insert(i.0.clone(), i.1.clone());
-                            }
-                        } else {
-                            resulting.RanFunctions.insert(i.0.clone(), i.1.clone());
-                        }
+                    for j in output.RanFunctions.iter().to_owned() {
+                        // map any args
                     }
                 }
             }
@@ -71,14 +63,16 @@ fn merge_predecessor_outputs(
 }
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct BlockState {
+    // from to
     pub Variables: HashMap<String, String>,
+    // func args
     pub RanFunctions: Vec<HashMap<String, String>>,
 }
 impl Default for BlockState {
     fn default() -> Self {
         Self {
             Variables: HashMap::new(),
-            RanFunctions: HashMap::new(),
+            RanFunctions: Vec::new(),
         }
     }
 }
