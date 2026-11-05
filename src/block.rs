@@ -187,7 +187,7 @@ impl fmt::Display for SpecificType {
             } => {
                 if let Some(sendto) = sendto {
                     // example:   %secret = call i32 () @SOURCE()
-                    write!(f, "%{} = call {} {}({})", sendto, calltype, func_name, args)
+                    write!(f, "{} = call {} {}({})", sendto, calltype, func_name, args)
                 } else {
                     // example:   call i32 @SOURCE()
                     write!(f, "call {} {}({})", calltype, func_name, args)
