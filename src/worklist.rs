@@ -1,16 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use clap::builder::Str;
-
 use crate::block::Block;
-fn resolve(mut name: String, values: HashMap<String, String>) -> String {
-    let mut seen: HashSet<String> = HashSet::new();
-    while !seen.contains(&name) && values.contains_key(&name) {
-        seen.insert(name.clone());
-        name = <std::string::String as Clone>::clone(&values[&name]);
-    }
-    name
-}
+
 fn leakcheck(mut name: String, values: HashMap<String, String>, badname: String) -> bool {
     let mut assignedtosource: bool = false;
 
@@ -38,86 +29,83 @@ fn merge_predecessor_outputs(
     let mut result: BlockState = BlockState::new();
 
     for predecessor in blocks {
-        if predecessor.connections.contains(&block.name) {
-            if let Some(output) = out_state.get(&predecessor.name) {
-                let resulting = &mut result;
-                for i in output.Variables.iter() {
-                    if resulting.Variables.contains_key(i.0) {
-                        if resulting.Variables.get(i.0).unwrap() == i.1 {
-                            continue;
-                        } else {
-                            resulting.Variables.insert(i.0.clone(), i.1.clone());
-                        }
+        if predecessor.connections.contains(&block.name)
+            && let Some(output) = out_state.get(&predecessor.name)
+        {
+            let resulting = &mut result;
+            for i in output.Variables.iter() {
+                if resulting.Variables.contains_key(i.0) {
+                    if resulting.Variables.get(i.0).unwrap() == i.1 {
+                        continue;
                     } else {
                         resulting.Variables.insert(i.0.clone(), i.1.clone());
                     }
+                } else {
+                    resulting.Variables.insert(i.0.clone(), i.1.clone());
                 }
-                for j in output.RanFunctions.iter().to_owned() {
-                    let function: (&String, &Vec<_>) = j.iter().next().unwrap();
-                    let argtemp = function.1.to_owned();
-                    let args: Vec<String> = argtemp
-                        .iter()
-                        .map(|j| {
-                            let g: Vec<_> = j.split(" ").collect();
-                            if g.len() > 1 {
-                                g[1].to_string().to_owned()
-                            } else {
-                                g[0].to_string().to_owned()
-                            }
-                        })
-                        .collect();
-                    let realargs: Vec<String> = args
-                        .iter()
-                        .map(|f| {
-                            resulting
-                                .Variables
-                                .get(&f.to_string())
-                                .cloned()
-                                .unwrap_or_else(|| f.clone())
-                        })
-                        .collect();
-                    resulting
-                        .RanFunctions
-                        .push(HashMap::from([(function.0.to_owned(), realargs)]));
-                }
+            }
+            for j in output.RanFunctions.iter().to_owned() {
+                let function: (&String, &Vec<_>) = j.iter().next().unwrap();
+                let argtemp = function.1.to_owned();
+
+                let realargs: Vec<String> = argtemp
+                    .iter()
+                    .map(|f| {
+                        resulting
+                            .Variables
+                            .get(&f.to_string())
+                            .cloned()
+                            .unwrap_or_else(|| f.clone())
+                    })
+                    .collect();
+                resulting
+                    .RanFunctions
+                    .push(HashMap::from([(function.0.to_owned(), realargs)]));
             }
         }
     }
 
     result
 }
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Default)]
 pub struct BlockState {
     // from to
     pub Variables: HashMap<String, String>,
     // func args
     pub RanFunctions: Vec<HashMap<String, Vec<String>>>,
 }
-impl Default for BlockState {
-    fn default() -> Self {
-        Self {
-            Variables: HashMap::new(),
-            RanFunctions: Vec::new(),
-        }
-    }
-}
 impl BlockState {
     pub fn new() -> Self {
         Self::default()
     }
 }
-fn transfer_block(block: Block, new_in: BlockState) {
+fn transfer_block(block: Block, new_in: BlockState) -> BlockState {
     let mut currentstate: BlockState = new_in.clone();
     for line in block.lines {
         if let Some(calls) = line.clone().getcall() {
-            currentstate.RanFunctions.push(calls);
+            let args: Vec<String> = calls
+                .1
+                .split(',')
+                .map(|j| {
+                    let g: Vec<_> = j.split(" ").collect();
+                    if g.len() > 1 {
+                        g[1].to_string().to_owned()
+                    } else {
+                        g[0].to_string().to_owned()
+                    }
+                })
+                .collect();
+            currentstate
+                .RanFunctions
+                .push(HashMap::from([(calls.0, args)]));
         }
         if let Some(assign) = line.assignment() {
-            // update all cases of assign.1 with assign.0
+            currentstate.Variables.insert(assign.0, assign.1);
         }
     }
+    currentstate
 }
-fn analyze(blocks: Vec<Block>) {
+fn analyze(mut blocks: Vec<Block>) {
     let mut in_state: HashMap<String, BlockState> = HashMap::new();
     let mut out_state: HashMap<String, BlockState> = HashMap::new();
     let mut worklist: VecDeque<Block> = VecDeque::new();
@@ -128,16 +116,16 @@ fn analyze(blocks: Vec<Block>) {
     blocks.iter_mut().for_each(|f| {
         f.update_setvars();
     });
-    for block in blocks {
+    for block in &blocks {
         in_state.insert(block.name.clone(), BlockState::new());
         out_state.insert(block.name.clone(), BlockState::new());
-        worklist.push_back(block);
+        worklist.push_back(block.clone());
     }
 
     while let Some(block) = worklist.pop_front() {
         let new_in: BlockState = merge_predecessor_outputs(&block, &blocks, &out_state);
 
-        let new_out = transfer_block(block, new_in.clone());
+        let new_out = transfer_block(block.clone(), new_in.clone());
 
         let changed = in_state[&block.name] != new_in || out_state[&block.name] != new_out;
 
