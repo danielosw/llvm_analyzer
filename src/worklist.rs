@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use clap::builder::Str;
+
 use crate::block::Block;
 fn resolve(mut name: String, values: HashMap<String, String>) -> String {
     let mut seen: HashSet<String> = HashSet::new();
@@ -32,28 +34,51 @@ fn merge_predecessor_outputs(
     block: &Block,
     blocks: &[Block],
     out_state: &HashMap<String, BlockState>,
-) -> HashMap<String, BlockState> {
-    let mut result: HashMap<String, BlockState> = HashMap::new();
+) -> BlockState {
+    let mut result: BlockState = BlockState::new();
 
     for predecessor in blocks {
         if predecessor.connections.contains(&block.name) {
             if let Some(output) = out_state.get(&predecessor.name) {
-                // if the predecessor is in their
-                if let Some(resulting) = result.get_mut(&predecessor.name) {
-                    for i in output.Variables.iter() {
-                        if resulting.Variables.contains_key(i.0) {
-                            if resulting.Variables.get(i.0).unwrap() == i.1 {
-                                continue;
-                            } else {
-                                resulting.Variables.insert(i.0.clone(), i.1.clone());
-                            }
+                let resulting = &mut result;
+                for i in output.Variables.iter() {
+                    if resulting.Variables.contains_key(i.0) {
+                        if resulting.Variables.get(i.0).unwrap() == i.1 {
+                            continue;
                         } else {
                             resulting.Variables.insert(i.0.clone(), i.1.clone());
                         }
+                    } else {
+                        resulting.Variables.insert(i.0.clone(), i.1.clone());
                     }
-                    for j in output.RanFunctions.iter().to_owned() {
-                        // map any args
-                    }
+                }
+                for j in output.RanFunctions.iter().to_owned() {
+                    let function: (&String, &Vec<_>) = j.iter().next().unwrap();
+                    let argtemp = function.1.to_owned();
+                    let args: Vec<String> = argtemp
+                        .iter()
+                        .map(|j| {
+                            let g: Vec<_> = j.split(" ").collect();
+                            if g.len() > 1 {
+                                g[1].to_string().to_owned()
+                            } else {
+                                g[0].to_string().to_owned()
+                            }
+                        })
+                        .collect();
+                    let realargs: Vec<String> = args
+                        .iter()
+                        .map(|f| {
+                            resulting
+                                .Variables
+                                .get(&f.to_string())
+                                .cloned()
+                                .unwrap_or_else(|| f.clone())
+                        })
+                        .collect();
+                    resulting
+                        .RanFunctions
+                        .push(HashMap::from([(function.0.to_owned(), realargs)]));
                 }
             }
         }
@@ -66,7 +91,7 @@ pub struct BlockState {
     // from to
     pub Variables: HashMap<String, String>,
     // func args
-    pub RanFunctions: Vec<HashMap<String, String>>,
+    pub RanFunctions: Vec<HashMap<String, Vec<String>>>,
 }
 impl Default for BlockState {
     fn default() -> Self {
@@ -110,8 +135,7 @@ fn analyze(blocks: Vec<Block>) {
     }
 
     while let Some(block) = worklist.pop_front() {
-        let new_in: HashMap<String, BlockState> =
-            merge_predecessor_outputs(&block, &blocks, &out_state);
+        let new_in: BlockState = merge_predecessor_outputs(&block, &blocks, &out_state);
 
         let new_out = transfer_block(block, new_in.clone());
 
