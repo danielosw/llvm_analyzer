@@ -83,13 +83,14 @@ fn main() -> std::io::Result<()> {
         let mut tempvec: Vec<Block> = blocks.values().map(|f| f.to_owned()).collect();
         tempvec.sort();
         let results = analyze(tempvec);
-        let instates = results.0;
+        let _instates = results.0;
         let out_states = results.1;
-        if (out_states.values().any(|f| {
-            f.RanFunctions.iter().any(|g| {
-                g.contains_key("@SINK") && g.get("@SINK").unwrap().to_owned()[0] == "%secret"
+        if out_states.values().any(|f| {
+            f.ran_functions.iter().any(|g| {
+                g.get("@SINK")
+                    .is_some_and(|args| args.iter().any(|arg| arg == "@SOURCE"))
             })
-        })) {
+        }) {
             println!("Found flow!")
         } else {
             println!("No flow!")

@@ -1,26 +1,7 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 use crate::block::Block;
 
-fn leakcheck(mut name: String, values: HashMap<String, String>, badname: String) -> bool {
-    let mut assignedtosource: bool = false;
-
-    let mut seen: HashSet<String> = HashSet::new();
-    while !seen.contains(&name) && (values.contains_key(&name)) {
-        if name == "@SOURCE" {
-            assignedtosource = true;
-        }
-        seen.insert(name.clone());
-        name = <std::string::String as Clone>::clone(&values[&name]);
-        if name == badname && assignedtosource {
-            return true;
-        }
-        if !name.starts_with("%") {
-            assignedtosource = false;
-        }
-    }
-    false
-}
 fn merge_predecessor_outputs(
     block: &Block,
     blocks: &[Block],
@@ -29,38 +10,36 @@ fn merge_predecessor_outputs(
     let mut result: BlockState = BlockState::new();
 
     for predecessor in blocks {
-        if predecessor.connections.contains(&block.name)
+        if predecessor
+            .connections
+            .iter()
+            .any(|connection| connection.trim_start_matches('%') == block.name)
             && let Some(output) = out_state.get(&predecessor.name)
         {
             let resulting = &mut result;
-            for i in output.Variables.iter() {
-                if resulting.Variables.contains_key(i.0) {
-                    if resulting.Variables.get(i.0).unwrap() == i.1 {
+            for i in output.variables.iter() {
+                if resulting.variables.contains_key(i.0) {
+                    if resulting.variables.get(i.0).unwrap() == i.1 {
                         continue;
                     } else {
-                        resulting.Variables.insert(i.0.clone(), i.1.clone());
+                        resulting.variables.insert(i.0.clone(), i.1.clone());
                     }
                 } else {
-                    resulting.Variables.insert(i.0.clone(), i.1.clone());
+                    resulting.variables.insert(i.0.clone(), i.1.clone());
                 }
             }
-            for j in output.RanFunctions.iter().to_owned() {
+            for j in output.ran_functions.iter().to_owned() {
                 let function: (&String, &Vec<_>) = j.iter().next().unwrap();
                 let argtemp = function.1.to_owned();
 
                 let realargs: Vec<String> = argtemp
                     .iter()
-                    .map(|f| {
-                        resulting
-                            .Variables
-                            .get(&f.to_string())
-                            .cloned()
-                            .unwrap_or_else(|| f.clone())
-                    })
+                    .map(|f| resolve_variable(&resulting.variables, f))
                     .collect();
-                resulting
-                    .RanFunctions
-                    .push(HashMap::from([(function.0.to_owned(), realargs)]));
+                let call = HashMap::from([(function.0.to_owned(), realargs)]);
+                if !resulting.ran_functions.contains(&call) {
+                    resulting.ran_functions.push(call);
+                }
             }
         }
     }
@@ -70,9 +49,9 @@ fn merge_predecessor_outputs(
 #[derive(Clone, Eq, PartialEq, Debug, Default)]
 pub struct BlockState {
     // from to
-    pub Variables: HashMap<String, String>,
+    pub variables: HashMap<String, String>,
     // func args
-    pub RanFunctions: Vec<HashMap<String, Vec<String>>>,
+    pub ran_functions: Vec<HashMap<String, Vec<String>>>,
 }
 impl BlockState {
     pub fn new() -> Self {
@@ -95,28 +74,46 @@ fn transfer_block(block: Block, new_in: BlockState) -> BlockState {
                     }
                 })
                 .collect();
-            currentstate
-                .RanFunctions
-                .push(HashMap::from([(calls.0, args)]));
+            let realargs: Vec<String> = args
+                .iter()
+                .map(|f| resolve_variable(&currentstate.variables, f))
+                .collect();
+            let call = HashMap::from([(calls.0, realargs)]);
+            if !currentstate.ran_functions.contains(&call) {
+                currentstate.ran_functions.push(call);
+            }
         }
         if let Some(assign) = line.assignment() {
-            currentstate.Variables.insert(assign.0, assign.1);
+            currentstate.variables.insert(assign.0, assign.1);
         }
     }
     currentstate
 }
+
+fn resolve_variable(variables: &HashMap<String, String>, variable: &str) -> String {
+    let mut resolved = variable.to_owned();
+    let mut seen = std::collections::HashSet::new();
+    while let Some(next) = variables.get(&resolved) {
+        if !seen.insert(resolved.clone()) {
+            break;
+        }
+        resolved = next.clone();
+    }
+    resolved
+}
+
 pub fn analyze(blocks: Vec<Block>) -> (HashMap<String, BlockState>, HashMap<String, BlockState>) {
     let mut mutblocks = blocks.clone();
     let mut in_state: HashMap<String, BlockState> = HashMap::new();
     let mut out_state: HashMap<String, BlockState> = HashMap::new();
     let mut worklist: VecDeque<Block> = VecDeque::new();
-    let name_to_block: HashMap<String, Block> = worklist
-        .iter()
-        .map(|f| (f.name.clone(), f.clone()))
-        .collect();
     mutblocks.iter_mut().for_each(|f| {
         f.update_setvars();
     });
+    let name_to_block: HashMap<String, Block> = mutblocks
+        .iter()
+        .map(|block| (block.name.clone(), block.clone()))
+        .collect();
     for block in &mutblocks {
         in_state.insert(block.name.clone(), BlockState::new());
         out_state.insert(block.name.clone(), BlockState::new());
@@ -135,7 +132,10 @@ pub fn analyze(blocks: Vec<Block>) -> (HashMap<String, BlockState>, HashMap<Stri
             out_state.insert(block.name.clone(), new_out);
 
             for successor in &block.connections {
-                worklist.push_back(name_to_block[successor].clone());
+                if let Some(successor_block) = name_to_block.get(successor.trim_start_matches('%'))
+                {
+                    worklist.push_back(successor_block.clone());
+                }
             }
         }
     }

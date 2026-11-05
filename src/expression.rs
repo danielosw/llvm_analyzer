@@ -89,13 +89,13 @@ impl Expression {
             SpecificType::Call {
                 func_name,
                 args,
-                calltype,
-                sendto,
+                calltype: _,
+                sendto: _,
             } => Some((func_name, args)),
             _ => None,
         }
     }
-    // Returns Some((from,tp)) if an assignment, else None
+    // Returns Some((destination, source)) if an assignment, else None
     pub fn assignment(self) -> Option<(String, String)> {
         match self.specific_type {
             SpecificType::Call {
@@ -105,7 +105,7 @@ impl Expression {
                 sendto,
             } => {
                 if let Some(realto) = sendto {
-                    return Some((func_name, realto));
+                    return Some((realto, func_name));
                 }
                 None
             }
@@ -113,12 +113,12 @@ impl Expression {
                 load_to,
                 load_from,
                 load_type: _,
-            } => Some((load_from, load_to)),
+            } => Some((load_to, load_from)),
             SpecificType::Store {
                 store_type: _,
                 store_from,
                 store_to,
-            } => Some((store_from, store_to)),
+            } => Some((store_to, store_from)),
             _ => None,
         }
     }
