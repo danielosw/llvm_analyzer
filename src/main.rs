@@ -1,7 +1,7 @@
 use clap::Parser;
 use eecs_677_project_3::block::{Block, EscapeIntOrReg};
 use eecs_677_project_3::processing::{process_function, process_ll};
-use eecs_677_project_3::worklist::worklist;
+use eecs_677_project_3::worklist::analyze;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, prelude::*};
@@ -82,7 +82,18 @@ fn main() -> std::io::Result<()> {
         let (blocks, function_name) = process_function(function_list.to_vec());
         let mut tempvec: Vec<Block> = blocks.values().map(|f| f.to_owned()).collect();
         tempvec.sort();
-        worklist(tempvec);
+        let results = analyze(tempvec);
+        let instates = results.0;
+        let out_states = results.1;
+        if (out_states.values().any(|f| {
+            f.RanFunctions.iter().any(|g| {
+                g.contains_key("@SINK") && g.get("@SINK").unwrap().to_owned()[0] == "%secret"
+            })
+        })) {
+            println!("Found flow!")
+        } else {
+            println!("No flow!")
+        }
         output_to_file(blocks, &function_name)?;
     }
     Ok(())

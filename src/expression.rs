@@ -30,7 +30,7 @@ define_regex!(REGEX_BLOCK_LABEL, r"^\s*(?P<name>.*?):");
 define_regex!(REGEX_RETURN, r"\bret\b");
 define_regex!(
     REGEX_CALL,
-    r"(%(?P<sendto>.*?){0,1} {0,}=){0,1} {0,}call (?P<type>.*?)(?P<func>@.*?)\((?P<args>.*?)\)"
+    r"((?P<sendto>%.*?){0,1} {0,}=){0,1} {0,}call (?P<type>.*?)(?P<func>@.*?)\((?P<args>.*?)\)"
 );
 define_regex!(
     REGEX_STORE,

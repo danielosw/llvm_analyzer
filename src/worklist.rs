@@ -105,7 +105,8 @@ fn transfer_block(block: Block, new_in: BlockState) -> BlockState {
     }
     currentstate
 }
-fn analyze(mut blocks: Vec<Block>) {
+pub fn analyze(blocks: Vec<Block>) -> (HashMap<String, BlockState>, HashMap<String, BlockState>) {
+    let mut mutblocks = blocks.clone();
     let mut in_state: HashMap<String, BlockState> = HashMap::new();
     let mut out_state: HashMap<String, BlockState> = HashMap::new();
     let mut worklist: VecDeque<Block> = VecDeque::new();
@@ -113,17 +114,17 @@ fn analyze(mut blocks: Vec<Block>) {
         .iter()
         .map(|f| (f.name.clone(), f.clone()))
         .collect();
-    blocks.iter_mut().for_each(|f| {
+    mutblocks.iter_mut().for_each(|f| {
         f.update_setvars();
     });
-    for block in &blocks {
+    for block in &mutblocks {
         in_state.insert(block.name.clone(), BlockState::new());
         out_state.insert(block.name.clone(), BlockState::new());
         worklist.push_back(block.clone());
     }
 
     while let Some(block) = worklist.pop_front() {
-        let new_in: BlockState = merge_predecessor_outputs(&block, &blocks, &out_state);
+        let new_in: BlockState = merge_predecessor_outputs(&block, &mutblocks, &out_state);
 
         let new_out = transfer_block(block.clone(), new_in.clone());
 
@@ -138,64 +139,5 @@ fn analyze(mut blocks: Vec<Block>) {
             }
         }
     }
-}
-pub fn worklist(mut blocks: Vec<Block>) -> Vec<Block> {
-    blocks.iter_mut().for_each(|f| {
-        f.update_setvars();
-    });
-    let mut worklist: Vec<Block> = blocks.clone();
-    let _blocknames: Vec<String> = worklist.iter().map(|f| f.name.clone()).collect();
-    let name_to_block: HashMap<String, Block> = worklist
-        .iter()
-        .map(|f| (f.name.clone(), f.clone()))
-        .collect();
-    while let Some(mut block) = worklist.pop() {
-        for connection in &block.connections {
-            if let Some(connected_block) = name_to_block.get(connection) {
-                let tempblock = block.clone();
-                let blockrefrenced: HashSet<&String> = tempblock.refrenced.iter().collect();
-                let connectedrefs: HashSet<&String> = connected_block.refrenced.iter().collect();
-                let merged_referenced: HashSet<&String> = blockrefrenced
-                    .union(&connectedrefs)
-                    .map(|f| f.to_owned())
-                    .collect();
-                let mut list_setvars = block.setvars.clone();
-                for setvar in &connected_block.setvars {
-                    if !list_setvars.contains(setvar) {
-                        list_setvars.push(setvar.clone());
-                    }
-                }
-                if merged_referenced != blockrefrenced || list_setvars != block.setvars {
-                    let blockref = &mut block.refrenced;
-                    let blocksetvars = &mut block.setvars;
-                    *blockref = merged_referenced
-                        .iter()
-                        .map(|f| f.to_owned().to_owned())
-                        .collect();
-                    *blocksetvars = list_setvars;
-                    worklist.push(block.clone());
-                } else {
-                    continue;
-                }
-            } else {
-                // its prob a function call
-                // which is not handled in this step
-                continue;
-            }
-        }
-    }
-    let mut values: HashMap<String, String> = HashMap::new();
-    let _sources: HashSet<String> = HashSet::new();
-    let _sinks: Vec<String> = Vec::new();
-    for block in blocks {
-        for assignment in block.setvars {
-            values.extend(assignment);
-        }
-    }
-    if leakcheck("@SOURCE".to_owned(), values, "@SINK".to_owned()) {
-        println!("Leak found");
-    } else {
-        println!("No leak");
-    }
-    worklist
+    (in_state, out_state)
 }
