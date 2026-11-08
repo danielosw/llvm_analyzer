@@ -12,7 +12,7 @@ end:
         ret i32 %var
 }
 
-define i32 @function2(i32 %argc) {
+define i32 @function3(i32 %argc) {
         %noArgs = icmp eq i32 %argc, 1
         br i1 %noArgs, label %lbl_t, label %lbl_f
 lbl_t:
