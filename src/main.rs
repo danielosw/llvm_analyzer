@@ -1,10 +1,13 @@
 use clap::Parser;
+use crossbeam::channel::{self as cc};
 use eecs_677_project_3::block::{Block, EscapeIntOrReg};
 use eecs_677_project_3::processing::{process_function, process_ll};
 use eecs_677_project_3::worklist::analyze;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, prelude::*};
+use std::thread::spawn;
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -78,8 +81,26 @@ fn main() -> std::io::Result<()> {
     let mut ll_text = String::new();
     reader.read_to_string(&mut ll_text)?;
     let functions = process_ll(ll_text)?;
-    for function_list in functions.values() {
-        let (blocks, function_name) = process_function(function_list.to_vec());
+    let (s, r) = cc::unbounded();
+
+    functions.values().for_each(|f| {
+        let lines = f.clone();
+        let sender = s.clone();
+
+        spawn(move || {
+            let (blocks, function_name) = process_function(lines);
+            sender.send((blocks, function_name)).unwrap();
+            drop(sender);
+        });
+    });
+    let function_list: Vec<_> = (0..functions.len())
+        .map(|_| {
+            r.recv().map_err(|error| {
+                std::io::Error::other(format!("failed to receive function result: {error}"))
+            })
+        })
+        .collect::<std::io::Result<_>>()?;
+    for (blocks, function_name) in function_list {
         let mut tempvec: Vec<Block> = blocks.values().map(|f| f.to_owned()).collect();
         tempvec.sort();
         let results = analyze(tempvec);
@@ -95,7 +116,7 @@ fn main() -> std::io::Result<()> {
         } else {
             println!("No flow!")
         }
-        output_to_file(blocks, &function_name)?;
+        output_to_file(blocks.clone(), &function_name)?;
     }
     Ok(())
 }

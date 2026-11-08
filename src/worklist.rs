@@ -1,7 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::block::Block;
-
 fn merge_predecessor_outputs(
     block: &Block,
     blocks: &[Block],
@@ -103,13 +102,11 @@ fn resolve_variable(variables: &HashMap<String, String>, variable: &str) -> Stri
 }
 
 pub fn analyze(blocks: Vec<Block>) -> (HashMap<String, BlockState>, HashMap<String, BlockState>) {
-    let mut mutblocks = blocks.clone();
+    let mutblocks = blocks.clone();
     let mut in_state: HashMap<String, BlockState> = HashMap::new();
     let mut out_state: HashMap<String, BlockState> = HashMap::new();
     let mut worklist: VecDeque<Block> = VecDeque::new();
-    mutblocks.iter_mut().for_each(|f| {
-        f.update_setvars();
-    });
+
     let name_to_block: HashMap<String, Block> = mutblocks
         .iter()
         .map(|block| (block.name.clone(), block.clone()))
@@ -130,7 +127,6 @@ pub fn analyze(blocks: Vec<Block>) -> (HashMap<String, BlockState>, HashMap<Stri
         if changed {
             in_state.insert(block.name.clone(), new_in);
             out_state.insert(block.name.clone(), new_out);
-
             for successor in &block.connections {
                 if let Some(successor_block) = name_to_block.get(successor.trim_start_matches('%'))
                 {
