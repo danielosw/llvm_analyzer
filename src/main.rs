@@ -1,18 +1,12 @@
 use clap::Parser;
-use crossbeam::channel::{self as cc, Sender};
+use crossbeam::channel::{self as cc};
 use eecs_677_project_3::block::{Block, EscapeIntOrReg};
 use eecs_677_project_3::processing::{process_function, process_ll};
 use eecs_677_project_3::worklist::analyze;
-use parking_lot::{Mutex, Once, RwLock};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, prelude::*};
-use std::sync::Arc;
-use std::sync::mpsc::{RecvError, RecvTimeoutError, TryRecvError};
-use std::sync::mpsc::{SendError, TrySendError};
-use std::thread::JoinHandle;
-use std::thread::{self, spawn};
-use std::time::Duration;
+use std::thread::spawn;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -96,6 +90,7 @@ fn main() -> std::io::Result<()> {
         spawn(move || {
             let (blocks, function_name) = process_function(lines);
             sender.send((blocks, function_name)).unwrap();
+            drop(sender);
         });
     });
     let function_list: Vec<_> = (0..functions.len())
