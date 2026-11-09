@@ -2,6 +2,7 @@ use crate::block::{self, SpecificType};
 use crate::expression::Expression;
 
 use crate::block::Block;
+use crate::parser::parse;
 
 use std::collections::HashMap;
 
@@ -59,6 +60,7 @@ pub fn process_function(
     let mut blocknum = 0;
     let mut block: Block = Block::new();
     for i in lines {
+        parse(i.clone());
         if i.trim().starts_with(";") {
             continue;
         }

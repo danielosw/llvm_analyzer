@@ -1,4 +1,5 @@
 use crate::block::BroadType::Other;
+use crate::parser::parse;
 use regex::{self, Regex};
 use std::fmt;
 use std::sync::LazyLock;
@@ -130,12 +131,13 @@ impl Expression {
         }
     }
     pub fn new_with_text(text: String) -> Self {
+        let spec = parse(text.clone());
+        let realspec = spec.expect("Failed to procces text");
         let mut expression = Expression {
             text,
             broad_type: BroadType::Unkown,
-            specific_type: SpecificType::Unkown,
+            specific_type: realspec,
         };
-        expression.guess_specific_type();
         expression.guess_general_type();
         expression
     }

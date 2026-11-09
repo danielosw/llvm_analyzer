@@ -104,6 +104,7 @@ pub enum SpecificType {
     Label {
         name: String,
     },
+    Comment,
     Endbracket,
     Unkown,
 }
