@@ -1,28 +1,31 @@
 use crate::block::SpecificType::{self, Comment, Unkown};
 
 fn without_register_prefix(value: &str) -> String {
-    value
-        .trim()
-        .strip_prefix('%')
-        .unwrap_or(value.trim())
-        .to_string()
+    value.trim().strip_prefix('%').unwrap_or(value.trim()).to_string()
 }
 
 pub fn parse(line: String) -> Option<SpecificType> {
     let line: &str = line.trim();
-    let tokens: Vec<String> = line.split([' ', ',', '=']).map(|f| f.to_string()).collect();
-    let startToken = tokens.first()?.to_string();
+    if line.is_empty() {
+        return Some(Unkown);
+    }
+    let tokens: Vec<String> = line
+        .split([' ', ',', '='])
+        .filter(|token| !token.is_empty())
+        .map(|f| f.to_string())
+        .collect();
+    let start_token = tokens.first()?.to_string();
     let length = tokens.len();
-    if startToken == ";" {
+    if start_token == ";" {
         return Some(Comment);
     }
     if line == "}" {
         return Some(SpecificType::Endbracket);
     }
-    if startToken == "ret" {
+    if start_token == "ret" {
         return Some(SpecificType::Ret);
     }
-    if startToken == "call" {
+    if start_token == "call" {
         // we know its the form call (?P<type>.*?)(?P<func>@.*?)\((?P<args>.*?)\)
         let func_start = line.find('@')?;
         let func_end = line[func_start..].find('(')? + func_start;
@@ -34,7 +37,7 @@ pub fn parse(line: String) -> Option<SpecificType> {
             sendto: None,
         });
     }
-    if startToken == "br" {
+    if start_token == "br" {
         if tokens.get(1)? == "label" {
             return Some(SpecificType::Br {
                 sendto1: tokens.get(2)?.to_string(),
@@ -44,14 +47,14 @@ pub fn parse(line: String) -> Option<SpecificType> {
             });
         }
         return Some(SpecificType::Br {
-            sendto1: tokens.get(5)?.to_string(),
+            sendto1: tokens.get(4)?.to_string(),
             matchtype: Some(tokens.get(1)?.to_string()),
             checkvar: Some(tokens.get(2)?.to_string()),
-            sendto2: Some(tokens.get(length - 1)?.to_string()),
+            sendto2: Some(tokens.get(6)?.to_string()),
         });
     }
     //    r"^\s*define\s+(?P<type>\S+)\s+(?P<name>@[^(]+)\((?P<args>[^)]*)\)"
-    if startToken == "define" {
+    if start_token == "define" {
         let func_start = line.find('@')?;
         let args_start = line[func_start..].find('(')? + func_start;
         let args_end = line.rfind(')')?;
@@ -63,24 +66,24 @@ pub fn parse(line: String) -> Option<SpecificType> {
             })
         };
     }
-    if length == 1 && startToken.ends_with(":") {
+    if length == 1 && start_token.ends_with(":") {
         // r"^\s*(?P<name>.*?):
         return Some(SpecificType::Label {
-            name: startToken.strip_suffix(":")?.to_owned(),
+            name: start_token.strip_suffix(":")?.to_owned(),
         });
     }
     //     r"store (?P<storetype>.*?) (?P<storefrom>.*?), {0,}ptr (?P<storeto>%.*?)$"
-    if startToken == "store" {
+    if start_token == "store" {
         return Some(SpecificType::Store {
             store_type: tokens.get(1)?.to_string(),
             store_from: tokens.get(2)?.to_string(),
-            store_to: without_register_prefix(tokens.get(length - 1)?),
+            store_to: tokens.get(length - 1)?.to_string(),
         });
     }
 
     //     r"((?P<sendto>%.*?){0,1} {0,}=){0,1} {0,}call (?P<type>.*?)(?P<func>@.*?)\((?P<args>.*?)\)"
-    if startToken.starts_with("%") {
-        if length >= 5 && tokens.get(2)? == "call" {
+    if start_token.starts_with("%") {
+        if length >= 5 && tokens.get(1)? == "call" {
             let func_start = line.find('@')?;
             let func_end = line[func_start..].find('(')? + func_start;
             let args_end = line.rfind(')')?;
@@ -93,14 +96,14 @@ pub fn parse(line: String) -> Option<SpecificType> {
                     .strip_prefix("call")?
                     .trim()
                     .to_string(),
-                sendto: Some(without_register_prefix(tokens.first()?)),
+                sendto: Some(tokens.first()?.to_string()),
             });
         }
         //    r"(?P<loadto>%.*?) {0,}= {0,}load (?P<type>.*?), {0,}ptr (?P<loadfrom>%.*?)$"
-        if length >= 5 && tokens.get(2)? == "load" {
+        if length >= 5 && tokens.get(1)? == "load" {
             return Some(SpecificType::Load {
-                load_to: without_register_prefix(tokens.first()?),
-                load_from: without_register_prefix(tokens.get(length - 1)?),
+                load_to: tokens.first()?.to_string(),
+                load_from: tokens.get(length - 1)?.to_string(),
                 load_type: tokens.get(3)?.to_string(),
             });
         }

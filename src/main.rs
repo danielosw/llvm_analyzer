@@ -6,8 +6,8 @@ use eecs_677_project_3::worklist::analyze;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, prelude::*};
+use std::thread::available_parallelism;
 use std::thread::spawn;
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -82,13 +82,21 @@ fn main() -> std::io::Result<()> {
     reader.read_to_string(&mut ll_text)?;
     let functions = process_ll(ll_text)?;
     let (s, r) = cc::unbounded();
-
+    // get the number of threads per function
+    // right now this is just functions_len/threads, but a better way should be added
+    let default_parallelism_approx_result = available_parallelism();
+    let default_parallelism_approx = match default_parallelism_approx_result {
+        Ok(Nonezero) => Nonezero.get(),
+        Err(error) => 1,
+    };
+    let threads_per_function = default_parallelism_approx / functions.len();
     functions.values().for_each(|f| {
         let lines = f.clone();
         let sender = s.clone();
 
         spawn(move || {
-            let (blocks, function_name) = process_function(lines);
+            let (blocks, function_name) =
+                process_function(lines, threads_per_function.try_into().unwrap());
             sender.send((blocks, function_name)).unwrap();
             drop(sender);
         });

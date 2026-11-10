@@ -57,7 +57,7 @@ fn process_ll_extracts_functions() {
 fn process_function_extracts_blocks() {
     let functions = process_ll(MAIN_LL.to_string()).expect("failed to process LLVM IR file");
     let main_lines = &functions["@main"];
-    let (blocks, main_name) = process_function(main_lines.clone());
+    let (blocks, main_name) = process_function(main_lines.clone(), 1);
     assert_eq!(blocks.len(), 4);
     assert_eq!(main_name, "main");
 }
@@ -219,7 +219,7 @@ fn main_ll_instructions_format_correctly_after_processing() {
     let mut formatted = Vec::new();
 
     for function_name in ["@main", "@function2"] {
-        let (blocks, _) = process_function(functions[function_name].clone());
+        let (blocks, _) = process_function(functions[function_name].clone(), 1);
         let mut blocks: Vec<_> = blocks.into_values().collect();
         blocks.sort();
 
