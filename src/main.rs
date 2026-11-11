@@ -3,6 +3,7 @@ use crossbeam::channel::{self as cc};
 use eecs_677_project_3::block::{Block, EscapeIntOrReg};
 use eecs_677_project_3::processing::{process_function, process_ll};
 use eecs_677_project_3::worklist::analyze;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, prelude::*};
@@ -89,7 +90,7 @@ fn main() -> std::io::Result<()> {
         Ok(Nonezero) => Nonezero.get(),
         Err(error) => 1,
     };
-    let threads_per_function = default_parallelism_approx / functions.len();
+    let threads_per_function = max(1, default_parallelism_approx / functions.len());
     functions.values().for_each(|f| {
         let lines = f.clone();
         let sender = s.clone();

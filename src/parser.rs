@@ -1,7 +1,11 @@
 use crate::block::SpecificType::{self, Comment, Unkown};
 
 fn without_register_prefix(value: &str) -> String {
-    value.trim().strip_prefix('%').unwrap_or(value.trim()).to_string()
+    value
+        .trim()
+        .strip_prefix('%')
+        .unwrap_or(value.trim())
+        .to_string()
 }
 
 pub fn parse(line: String) -> Option<SpecificType> {
@@ -100,17 +104,19 @@ pub fn parse(line: String) -> Option<SpecificType> {
             });
         }
         //    r"(?P<loadto>%.*?) {0,}= {0,}load (?P<type>.*?), {0,}ptr (?P<loadfrom>%.*?)$"
-        if length >= 5 && tokens.get(1)? == "load" {
-            return Some(SpecificType::Load {
-                load_to: tokens.first()?.to_string(),
-                load_from: tokens.get(length - 1)?.to_string(),
-                load_type: tokens.get(3)?.to_string(),
-            });
-        }
-        // r"^\s*br (?:label (?P<sendto1>[^\s,]+)|(?P<matchtype>[^\s]+) (?P<checkvar>[^,\s]+), label (?P<sendto2>[^,\s]+), label (?P<sendto3>[^\s,]+))\s*$"
 
-        // r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
         if length >= 5 {
+            // r"^\s*br (?:label (?P<sendto1>[^\s,]+)|(?P<matchtype>[^\s]+) (?P<checkvar>[^,\s]+), label (?P<sendto2>[^,\s]+), label (?P<sendto3>[^\s,]+))\s*$"
+
+            if tokens.get(1)? == "load" {
+                return Some(SpecificType::Load {
+                    load_to: tokens.first()?.to_string(),
+                    load_from: tokens.get(length - 1)?.to_string(),
+                    load_type: tokens.get(3)?.to_string(),
+                });
+            }
+            // r"%(?P<RegisterName>.*?)\s{0,}=\s{0,}(?P<OperatorType>.*?) (?P<NumberType>.*?) \s{0,}(?P<NumberA>[0-9]*?*?),\s{0,}(?P<NumberB>[0-9]*?*?)$"
+
             let numeric_tokens: Vec<&String> =
                 tokens.iter().filter(|token| !token.is_empty()).collect();
             let potential_opperator = numeric_tokens.get(1)?.as_str();

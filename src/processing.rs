@@ -64,18 +64,35 @@ pub fn process_function(
     let mut block: Block = Block::new();
     let mut usedtheads = 0;
     let (s, r) = cc::unbounded();
+    let mut expression_list: Vec<_> = Vec::new();
+    let mut remaining_expressions = lines.len();
+    println!("total threads: {}", threads);
+
     for (x, i) in lines.clone().into_iter().enumerate() {
         let real = x;
         let sender = s.clone();
-        if (usedtheads < threads) {
-            spawn(move || {
-                let expression = Expression::new_with_text(i.clone());
-                sender.send((expression, real)).unwrap();
-                drop(sender);
-            });
+        if (usedtheads >= threads) {
+            expression_list.push(
+                r.recv()
+                    .map_err(|error| {
+                        std::io::Error::other(format!("failed to receive function result: {error}"))
+                    })
+                    .unwrap(),
+            );
+
+            usedtheads -= 1;
+
+            remaining_expressions -= 1;
         }
+        spawn(move || {
+            let expression = Expression::new_with_text(i.clone());
+            sender.send((expression, real)).unwrap();
+            drop(sender);
+        });
+        usedtheads += 1;
     }
-    let mut expression_list: Vec<_> = (0..lines.len())
+
+    let mut received: Vec<(Expression, usize)> = (0..remaining_expressions)
         .map(|_| {
             r.recv().map_err(|error| {
                 std::io::Error::other(format!("failed to receive function result: {error}"))
@@ -85,6 +102,8 @@ pub fn process_function(
         .unwrap_or_else(|error| {
             panic!("failed to receive function result: {error}");
         });
+
+    expression_list.append(&mut received);
     expression_list.sort_by_key(|(_, index)| *index);
 
     for (expression, _) in expression_list {
