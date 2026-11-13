@@ -20,9 +20,8 @@ fn merge_predecessor_outputs(
                 if resulting.variables.contains_key(i.0) {
                     if resulting.variables.get(i.0).unwrap() == i.1 {
                         continue;
-                    } else {
-                        resulting.variables.insert(i.0.clone(), i.1.clone());
                     }
+                    resulting.variables.insert(i.0.clone(), i.1.clone());
                 } else {
                     resulting.variables.insert(i.0.clone(), i.1.clone());
                 }
