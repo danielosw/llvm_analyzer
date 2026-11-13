@@ -87,8 +87,8 @@ fn main() -> std::io::Result<()> {
     // right now this is just functions_len/threads, but a better way should be added
     let default_parallelism_approx_result = available_parallelism();
     let default_parallelism_approx = match default_parallelism_approx_result {
-        Ok(Nonezero) => Nonezero.get(),
-        Err(error) => 1,
+        Ok(nonezero) => nonezero.get(),
+        Err(_error) => 1,
     };
     let threads_per_function = max(1, default_parallelism_approx / functions.len());
     functions.values().for_each(|f| {

@@ -2,7 +2,6 @@ use crate::block::{self, SpecificType};
 use crate::expression::Expression;
 
 use crate::block::Block;
-use crate::parser::parse;
 
 use crossbeam::channel::{self as cc};
 use std::collections::HashMap;
@@ -71,7 +70,7 @@ pub fn process_function(
     for (x, i) in lines.clone().into_iter().enumerate() {
         let real = x;
         let sender = s.clone();
-        if (usedtheads >= threads) {
+        if usedtheads >= threads {
             expression_list.push(
                 r.recv()
                     .map_err(|error| {
