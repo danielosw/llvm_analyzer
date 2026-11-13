@@ -104,6 +104,7 @@ pub enum SpecificType {
     Label {
         name: String,
     },
+    Comment,
     Endbracket,
     Unkown,
 }
@@ -198,14 +199,14 @@ impl fmt::Display for SpecificType {
                 store_from,
                 store_to,
             } => {
-                write!(f, "store {} {}, ptr %{}", store_type, store_from, store_to)
+                write!(f, "store {} {}, ptr {}", store_type, store_from, store_to)
             }
             Self::Load {
                 load_to,
                 load_from,
                 load_type,
             } => {
-                write!(f, "%{} = load {}, ptr %{}", load_to, load_type, load_from)
+                write!(f, "{} = load {}, ptr {}", load_to, load_type, load_from)
             }
             _ => unimplemented!(),
         }

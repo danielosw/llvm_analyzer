@@ -3,7 +3,9 @@ use crate::expression::Expression;
 
 use crate::block::Block;
 
+use crossbeam::channel::{self as cc};
 use std::collections::HashMap;
+use std::thread::spawn;
 
 pub fn process_ll(ll_text: String) -> Result<HashMap<String, Vec<String>>, std::io::Error> {
     let lines: Vec<String> = ll_text.lines().map(|s| s.to_string()).collect();
@@ -47,6 +49,7 @@ pub fn process_ll(ll_text: String) -> Result<HashMap<String, Vec<String>>, std::
 
 pub fn process_function(
     lines: Vec<String>,
+    threads: i32,
 ) -> (
     std::collections::HashMap<std::string::String, block::Block>,
     String,
@@ -58,12 +61,51 @@ pub fn process_function(
     let mut functionname = "".to_owned();
     let mut blocknum = 0;
     let mut block: Block = Block::new();
-    for i in lines {
-        if i.trim().starts_with(";") {
-            continue;
-        }
-        let expression = Expression::new_with_text(i.clone());
+    let mut usedtheads = 0;
+    let (s, r) = cc::unbounded();
+    let mut expression_list: Vec<_> = Vec::new();
+    let mut remaining_expressions = lines.len();
+    println!("total threads: {}", threads);
 
+    for (x, i) in lines.clone().into_iter().enumerate() {
+        let real = x;
+        let sender = s.clone();
+        if usedtheads >= threads {
+            expression_list.push(
+                r.recv()
+                    .map_err(|error| {
+                        std::io::Error::other(format!("failed to receive function result: {error}"))
+                    })
+                    .unwrap(),
+            );
+
+            usedtheads -= 1;
+
+            remaining_expressions -= 1;
+        }
+        spawn(move || {
+            let expression = Expression::new_with_text(i.clone());
+            sender.send((expression, real)).unwrap();
+            drop(sender);
+        });
+        usedtheads += 1;
+    }
+
+    let mut received: Vec<(Expression, usize)> = (0..remaining_expressions)
+        .map(|_| {
+            r.recv().map_err(|error| {
+                std::io::Error::other(format!("failed to receive function result: {error}"))
+            })
+        })
+        .collect::<std::io::Result<_>>()
+        .unwrap_or_else(|error| {
+            panic!("failed to receive function result: {error}");
+        });
+
+    expression_list.append(&mut received);
+    expression_list.sort_by_key(|(_, index)| *index);
+
+    for (expression, _) in expression_list {
         if !inblock {
             if matches!(expression.specific_type, SpecificType::Define { .. }) {
                 functionname = match expression.specific_type {
@@ -110,7 +152,6 @@ pub fn process_function(
             }
         } else {
             // we are in a block
-            let expression = Expression::new_with_text(i.clone());
             block.lines.push(expression.clone());
             if expression.specific_type == SpecificType::Ret {
                 blocks.insert(block.clone().name, block.clone());
