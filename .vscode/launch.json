@@ -5,13 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug executable 'eecs-677-project-3'",
+            "name": "Debug executable 'llvm_analyzer'",
             "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "run",
-                    "--bin=eecs-677-project-3"
+                    "--bin=llvm_analyzer"
                 ]
             },
             "args": [
@@ -20,13 +20,13 @@
             ]
         },
         {
-            "name": "Debug unit tests in executable 'eecs-677-project-3'",
+            "name": "Debug unit tests in executable 'llvm_analyzer'",
             "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
-                    "--bin=eecs-677-project-3"
+                    "--bin=llvm_analyzer"
                 ]
             }
         }
