@@ -1,8 +1,8 @@
 use clap::Parser;
 use crossbeam::channel::{self as cc};
-use eecs_677_project_3::block::{Block, EscapeIntOrReg};
-use eecs_677_project_3::processing::{process_function, process_ll};
-use eecs_677_project_3::worklist::analyze;
+use llvm_analyzer::block::{Block, EscapeIntOrReg};
+use llvm_analyzer::processing::{process_function, process_ll};
+use llvm_analyzer::worklist::analyze;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fs::File;

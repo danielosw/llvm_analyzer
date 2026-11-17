@@ -161,15 +161,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a31eee39dddec8330830986fcd7625edb5a24ec90ea038215273bbc3adb08ac6"
 
 [[package]]
-name = "eecs-677-project-3"
-version = "0.1.0"
-dependencies = [
- "clap",
- "crossbeam",
- "parking_lot",
-]
-
-[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -186,6 +177,15 @@ name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
+
+[[package]]
+name = "llvm_analyzer"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "crossbeam",
+ "parking_lot",
+]
 
 [[package]]
 name = "lock_api"

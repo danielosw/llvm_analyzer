@@ -1,9 +1,13 @@
 [package]
-name = "eecs-677-project-3"
+name = "llvm_analyzer"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"] }
 crossbeam = { version = "0.8.5", features = ["nightly"] }
-parking_lot = { version = "0.13.0", features = ["arc_lock", "nightly", "send_guard"] }
+parking_lot = { version = "0.13.0", features = [
+    "arc_lock",
+    "nightly",
+    "send_guard",
+] }
