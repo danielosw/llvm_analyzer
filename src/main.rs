@@ -102,19 +102,28 @@ fn main() -> std::io::Result<()> {
             drop(sender);
         });
     });
-    let function_list: Vec<_> = (0..functions.len())
+    let function_list: Vec<(HashMap<String, Block>, String)> = (0..functions.len())
         .map(|_| {
             r.recv().map_err(|error| {
                 std::io::Error::other(format!("failed to receive function result: {error}"))
             })
         })
         .collect::<std::io::Result<_>>()?;
-    for (blocks, function_name) in function_list {
+    let known_functions: Vec<String> = function_list
+        .iter()
+        .map(|f: &(HashMap<String, Block>, String)| f.1.clone())
+        .collect();
+    for (blocks, function_name) in &function_list.clone() {
         let mut tempvec: Vec<Block> = blocks.values().map(|f| f.to_owned()).collect();
         tempvec.sort();
-        let results = analyze(tempvec);
-        let _instates = results.0;
+        let results = analyze(tempvec, function_list.clone(), known_functions.clone());
+        let instates = results.0;
         let out_states = results.1;
+        println!("Function: {}:", function_name);
+        println!("Outstates:");
+        for (i, j) in &out_states {
+            println!("{}:\n{}", i, j);
+        }
         if out_states.values().any(|f| {
             f.ran_functions.iter().any(|g| {
                 g.get("@SINK")
@@ -125,7 +134,8 @@ fn main() -> std::io::Result<()> {
         } else {
             println!("No flow!")
         }
-        output_to_file(blocks.clone(), &function_name)?;
+
+        output_to_file(blocks.clone(), function_name)?;
     }
     Ok(())
 }

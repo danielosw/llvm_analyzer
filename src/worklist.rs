@@ -1,4 +1,7 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt,
+};
 
 use crate::block::Block;
 fn merge_predecessor_outputs(
@@ -56,6 +59,22 @@ impl BlockState {
         Self::default()
     }
 }
+impl fmt::Display for BlockState {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(formatter, "Variables:")?;
+        for (name, value) in &self.variables {
+            writeln!(formatter, "{}:{}", name, value)?;
+        }
+
+        writeln!(formatter, "Function uses:")?;
+        for function in &self.ran_functions {
+            let (name, args) = function.iter().next().unwrap();
+            writeln!(formatter, "{}:{}", name, args.join(","))?;
+        }
+
+        Ok(())
+    }
+}
 fn transfer_block(block: Block, new_in: BlockState) -> BlockState {
     let mut currentstate: BlockState = new_in.clone();
     for line in block.lines {
@@ -100,7 +119,11 @@ fn resolve_variable(variables: &HashMap<String, String>, variable: &str) -> Stri
     resolved
 }
 
-pub fn analyze(blocks: Vec<Block>) -> (HashMap<String, BlockState>, HashMap<String, BlockState>) {
+pub fn analyze(
+    blocks: Vec<Block>,
+    function_list: Vec<(HashMap<String, Block>, String)>,
+    function_names: Vec<String>,
+) -> (HashMap<String, BlockState>, HashMap<String, BlockState>) {
     let mutblocks = blocks.clone();
     let mut in_state: HashMap<String, BlockState> = HashMap::new();
     let mut out_state: HashMap<String, BlockState> = HashMap::new();
